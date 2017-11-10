@@ -41,7 +41,7 @@ var login = (io, socket, email, password) => {
                 errors.push('Wrong password.');
                 workflow.emit('errors', errors);
             } else {
-                socket.emit('sign-in', JSON.stringify(user));
+                socket.emit('sign-in', user);
             }
         });
     });
@@ -88,7 +88,8 @@ var signUp = (io, socket, object) => {
     });
 
     workflow.on('errors', (errors) => {
-        socket.emit('sign-up', { 'errors': errors })
+        //socket.emit('sign-up', { 'errors': errors })
+        socket.emit('sign-in', { 'errors': errors });
     });
 
     workflow.on('insert', () => {
@@ -104,7 +105,8 @@ var signUp = (io, socket, object) => {
                 errors.push('This email was used.');
                 workflow.emit('errors', errors);
             } else {
-                socket.emit('sign-up', JSON.stringify(user));   
+                //socket.emit('sign-up', JSON.stringify(user));                
+                socket.emit('sign-in', JSON.stringify(user));
             }
         });
     });
