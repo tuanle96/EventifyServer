@@ -19,11 +19,11 @@ var index = io.of('/').on('connection', (socket) => {
  */
 
 var user = io.of('/user').on('connection', (socket) => {
-    console.log('/user: ' + socket.id + " connected");
+    console.log(socket.id + " connected");
 
     //sign in with email and password
     socket.on('sign-in', (data) => {
-        User.login(io, socket, data.email, data.password);  
+        User.login(io, socket, data);  
     });
 
     //sign in with facebook
@@ -73,7 +73,7 @@ var user = io.of('/user').on('connection', (socket) => {
 
     //get informations
     socket.on('get-informations', (data) => {
-
+        User.getInformations(io, socket, data)
     });
 
     //get informations with id

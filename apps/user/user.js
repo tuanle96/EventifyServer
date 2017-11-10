@@ -4,7 +4,10 @@ var User = require('../models/index').user;
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
 
-var login = (io, socket, email, password) => {
+var login = (io, socket, object) => {
+
+    var email = object.email,
+        password = object.password
 
     var errors = [];
     var workflow = new (require('events').EventEmitter)();
@@ -16,7 +19,6 @@ var login = (io, socket, email, password) => {
         if (!password) {
             errors.push('Password required');
         };
-
         if (errors.length) {
             workflow.emit('errors', errors);
         } else {
@@ -30,7 +32,6 @@ var login = (io, socket, email, password) => {
 
     workflow.on('login', () => {
         User.findOne({ email: email }, (err, user) => {
-            console.log(err + " | " + user);
             if (err) {
                 socket.emit('sign-in', { 'errors': err });
             };
@@ -41,6 +42,15 @@ var login = (io, socket, email, password) => {
                 errors.push('Wrong password.');
                 workflow.emit('errors', errors);
             } else {
+
+                //create token
+                var sign = {
+                    id: user._id,
+                    email: user.email
+                };
+                var token = jwt.sign(sign, key, {});
+
+                user.token = token
                 socket.emit('sign-in', user);
             }
         });
@@ -60,8 +70,8 @@ var loginWithGooglePlus = (req, res) => {
 
 //sign up with email & password
 var signUp = (io, socket, object) => {
-   
-    var email = object.email, 
+
+    var email = object.email,
         password = object.password,
         dateCreated = object.dateCreated
 
@@ -105,8 +115,19 @@ var signUp = (io, socket, object) => {
                 errors.push('This email was used.');
                 workflow.emit('errors', errors);
             } else {
-                //socket.emit('sign-up', JSON.stringify(user));                
-                socket.emit('sign-in', JSON.stringify(user));
+
+                //create token
+                var sign = {
+                    id: user._id,
+                    email: user.email
+                };
+                var token = jwt.sign(sign, key, {});
+
+                user.token = token
+
+                console.log(user)
+
+                socket.emit('sign-up', user);
             }
         });
     });
@@ -120,7 +141,7 @@ var updatePw = (req, res) => {
 }
 
 //update information
-var updateInformations = (req, res) => {
+var updateInformations = (io, socket, token) => {
 
 }
 
@@ -138,12 +159,49 @@ var signOut = (req, res) => {
 
 }
 //get information
-var getInformations = (req, res) => {
+var getInformations = (io, socket, token) => {
+    var workflow = new (require('events').EventEmitter)();
 
+    workflow.on('validateToken', () => {
+        if (!token) {
+            workflow.emit('errorHandler', 'Token is required');
+        }
+
+        //validate token        
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('errorHandler', err);
+            } else {
+                var id = decoded.id
+
+                if (!id) {
+                    workflow.emit('errorHandler', 'Id user not found');
+                } else {
+                    workflow.emit('getInformations', id);
+                }
+            }
+        });
+    });
+
+    workflow.on('errorHandler', (error) => {
+        socket.emit('get-informations', JSON.stringify(error));
+    });
+
+    workflow.on('getInformations', (id) => {
+        User.findById(id, (err, user) => {
+            if (err) {
+                workflow.emit('errorHandler', err);
+            } else {
+                socket.emit('get-informations', user);
+            }
+        });
+    });
+
+    workflow.emit('validateToken');
 }
 
 //get informations with id
-var getInformationsWithId = (req, res) => {
+var getInformationsWithId = (io, socket, token, id) => {
 
 }
 
@@ -159,12 +217,10 @@ var getMyTickets = (req, res) => {
 
 //get my orders
 var getMyOrders = (req, res) => {
-    console.log('get-my-orders')
 }
 
 //new order tickets
 var newOrder = (req, res) => {
-
 }
 
 module.exports = {
