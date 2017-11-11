@@ -12,7 +12,7 @@ var login = (io, socket, object) => {
     var errors = [];
     var workflow = new (require('events').EventEmitter)();
 
-    workflow.on('validateParams', () => {
+    workflow.on('validate-parameters', () => {
         if (!email) {
             errors.push('Email required');
         };
@@ -20,17 +20,17 @@ var login = (io, socket, object) => {
             errors.push('Password required');
         };
         if (errors.length) {
-            workflow.emit('errors', errors);
+            workflow.emit('errors-handler', errors);
         } else {
-            workflow.emit('login');
+            workflow.emit('sign-in');
         };
     });
 
-    workflow.on('errors', (errors) => {
+    workflow.on('errors-handler', (errors) => {
         socket.emit('sign-in', { 'errors': errors })
     });
 
-    workflow.on('login', () => {
+    workflow.on('sign-in', () => {
         User.findOne({ email: email }, (err, user) => {
             if (err) {
                 socket.emit('sign-in', { 'errors': err });
@@ -51,12 +51,11 @@ var login = (io, socket, object) => {
                 var token = jwt.sign(sign, key, {});
 
                 user.token = token
-                socket.emit('sign-in', user);
-            }
+                socket.emit('sign-in', user);            }
         });
     });
 
-    workflow.emit('validateParams');
+    workflow.emit('validate-parameters');
 }
 
 //sign in with facebook
@@ -136,13 +135,69 @@ var signUp = (io, socket, object) => {
 }
 
 //update password
-var updatePw = (req, res) => {
+var updatePw = (io, socket, currentPw, newPw, token) => {
+    var workflow = new (require('events').EventEmitter)();
 
+    workflow.on('validate-parameters', () => {
+        if (!currentPw) {
+            workflow.emit('errors-handler' , 'Current password is required!');
+            return
+        }
+
+        if (!newPw) {
+            workflow.emit('error-handler', 'New password is required!');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('errors-handler', 'Token not found');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('errors-handler', err);
+            } else {
+                var id = decoded.id 
+                if (!id) {
+                    workflow.emit('errors-handler', 'Id user not found');
+                } else {
+                    workflow.emit('update-password', id);
+                }
+            }
+        });
+    });
+
+    workflow.on('errorsHandler', (error) => {
+        socket.emit('update-password', { 'errors': errors });
+    });
+
+    workflow.on('updatePassword', (id) => {
+        User.findById(id, (err, user) => {
+            if (err) {
+                workflow.emit('errorsHandler', err);
+            } else {
+                user.password = newPw
+                user.save((err) => {
+                    if (err) {
+                        workflow.emit('errorsHandler', err);
+                    } else {
+                        socket.emit('update-password', {});
+                    }
+                });
+            }
+        });
+    });
+
+    workflow.emit('validateParameters');
 }
 
 //update information
-var updateInformations = (io, socket, token) => {
-
+var updateInformations = (io, socket, user, token) => {
+   
 }
 
 //like event
@@ -184,7 +239,8 @@ var getInformations = (io, socket, token) => {
     });
 
     workflow.on('errorHandler', (error) => {
-        socket.emit('get-informations', JSON.stringify(error));
+        socket.emit('get-informations', {"errors" : error});
+        
     });
 
     workflow.on('getInformations', (id) => {

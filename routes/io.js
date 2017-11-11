@@ -1,29 +1,23 @@
 var io = require('socket.io')();
 let User = require('../apps/user/index').user
+let Ticket = require('../apps/ticket/index').ticket
+let Event = require('../apps/event/index').event
 
 
 /**
  * Index
  */
 
-var index = io.of('/').on('connection', (socket) => {
-    console.log('/index: ' + socket.id + " connected!");
+io.of('/').on('connection', (socket) => {
 
-    socket.on('disconnect', () => {
-        console.log('/index: ' + socket.id + " disconnected!");
-    });
-});
-
-/**
- * Users router
- */
-
-var user = io.of('/user').on('connection', (socket) => {
-    console.log(socket.id + " connected");
+    /**
+     * User routers
+     */
 
     //sign in with email and password
     socket.on('sign-in', (data) => {
-        User.login(io, socket, data);  
+        console.log(socket.id + " sign-in");
+        User.login(io, socket, data);
     });
 
     //sign in with facebook
@@ -38,12 +32,13 @@ var user = io.of('/user').on('connection', (socket) => {
 
     //sign up
     socket.on('sign-up', (object) => {
+        console.log(socket.id + " sign-up");
         User.signUp(io, socket, object);
     });
 
     //update password
     socket.on('update-password', (data) => {
-
+        User.updatePw(io, socket, data.currentPw, data.newPw, data.token);
     });
 
     //update informations
@@ -72,8 +67,9 @@ var user = io.of('/user').on('connection', (socket) => {
     });
 
     //get informations
-    socket.on('get-informations', (data) => {
-        User.getInformations(io, socket, data)
+    socket.on('get-informations', (token) => {
+        console.log(socket.id + " get-informations");
+        User.getInformations(io, socket, token)
     });
 
     //get informations with id
@@ -96,14 +92,56 @@ var user = io.of('/user').on('connection', (socket) => {
 
     });
 
-    //disconnect
-    socket.on('disconnect', () => {
-        console.log('/user: ' + socket.id + " disconnected!");
+
+    /**
+     * Events Routers
+     * 
+     */
+
+    socket.on('get-events', (data) => {
+
     });
-});
 
-var event = io.of('/event').on('connection', (socket) => {
+    socket.on('get-event', (data) => {
 
+    });
+
+    socket.on('new-event', (data) => {
+
+    });
+
+    /**
+     * Ticket routers
+     */
+
+    socket.on('new-ticket', (ticket, token) => {
+        console.log(socket.id + " new-ticket");
+        Ticket.newTicket(io, socket, ticket, token);
+    });
+
+    socket.on('get-tickets', (token) => {
+        console.log(socket.id + " get-tickets");
+        Ticket.getTickets(io, socket, token);
+    });
+
+    socket.on('delete-ticket', (idTicket, token) => {
+        console.log(socket.id + " delete-ticket");
+        Ticket.deleteTicket(io, socket, idTicket, token);
+    });
+
+    socket.on('edit-ticket', (data) => {
+
+    });
+
+
+
+    console.log('/index: ' + socket.id + " connected!");
+
+    socket.emit('joined', { "status": "Ok" })
+
+    socket.on('disconnect', () => {
+        console.log('/index: ' + socket.id + " disconnected!");
+    });
 });
 
 module.exports = io;
