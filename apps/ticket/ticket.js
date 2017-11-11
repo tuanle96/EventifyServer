@@ -4,8 +4,6 @@
 var Ticket = require('../models/index').ticket;
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
-var Schema = require('../config/index').db.Schema;
-
 var newTicket = (io, socket, ticket, token) => {
 
     var name = ticket.name,
@@ -154,8 +152,8 @@ var deleteTicket = (io, socket, idTicket, token) => {
     })
 
     workflow.on('delete-ticket', (idTicket) => {
-     
-         Ticket.deleteOne({'_id' : idTicket} , (err, result) => {
+
+        Ticket.deleteOne({ '_id': idTicket }, (err, result) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
@@ -167,7 +165,78 @@ var deleteTicket = (io, socket, idTicket, token) => {
 
                 socket.emit('delete-ticket', json)
             }
-         })
+        })
+    });
+
+    workflow.emit('validate-parameters');
+}
+
+var editTicket = (io, socket, ticket, token) => {
+    var workflow = new (require('events').EventEmitter)();
+    var idTicket = ticket.id, name = ticket.name,
+        descriptions = ticket.descriptions,
+        quantitiesToSell = ticket.quantitiesToSell,
+        price = ticket.price,
+        maxQuantitiesToOrder = ticket.maxQuantitiesToOrder,
+        quantitiesSold = ticket.quantitiesSold,
+        quantitiesRemaining = ticket.quantitiesRemaining
+
+    workflow.on('validate-parameters', () => {
+        if (!idTicket) {
+            workflow.emit('error-handler', 'Id ticket is required!');
+            return
+        }
+        if (!token) {
+            workflow.emit('error-handler', 'Token not found');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('errors-handler', err);
+            } else {
+                var id = decoded.id
+                if (!id) {
+                    workflow.emit('error-handler', 'Id user not found');
+                } else {
+                    workflow.emit('edit-ticket', idTicket);
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (error) => {
+        socket.emit('edit-ticket', { 'errors': errors });
+    });
+
+    workflow.on('edit-ticket', (idTicket) => {
+
+        Ticket.findById(idTicket, (err, ticket) => {
+            if (err) {
+                workflow.emit('error-handler', err)
+            } else {
+                ticket.name = name
+                ticket.quantitiesToSell = quantitiesToSell
+                ticket.dateModified = Date.now()
+
+                if (descriptions) { ticket.descriptions = descriptions } else { ticket.descriptions = "" }
+                if (maxQuantitiesToOrder) { ticket.maxQuantitiesToOrder = maxQuantitiesToOrder } else { ticket.maxQuantitiesToOrder = "" }
+                if (price) { ticket.price = price } else { ticket.price = "price" }
+                if (quantitiesSold) { ticket.quantitiesSold = quantitiesSold } else { ticket.quantitiesSold = "" }
+                if (quantitiesRemaining) { ticket.quantitiesRemaining = quantitiesRemaining } else { ticket.quantitiesRemaining = "" }
+
+                ticket.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                    } else {
+                        socket.emit('edit-ticket', {});
+                    }
+                });
+            }
+        });       
     });
 
     workflow.emit('validate-parameters');
@@ -176,6 +245,7 @@ var deleteTicket = (io, socket, idTicket, token) => {
 module.exports = {
     newTicket: newTicket,
     getTickets: getTickets,
-    deleteTicket: deleteTicket
+    deleteTicket: deleteTicket,
+    editTicket: editTicket
 }
 

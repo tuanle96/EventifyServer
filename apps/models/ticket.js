@@ -7,6 +7,7 @@ module.exports = mongoose.model('Ticket', new Schema({
     descriptions: String,
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     dateCreated: Number,
+    dateModified: Number,
     quantitiesToSell: Number,
     maxQuantitiesToOrder: Number,
     quantitiesSold: Number,

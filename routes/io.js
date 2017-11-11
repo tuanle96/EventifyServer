@@ -93,9 +93,10 @@ io.of('/').on('connection', (socket) => {
     });
 
 
-    /**
+    /**====================================================
      * Events Routers
      * 
+     *=====================================================
      */
 
     socket.on('get-events', (data) => {
@@ -110,8 +111,13 @@ io.of('/').on('connection', (socket) => {
 
     });
 
-    /**
-     * Ticket routers
+
+
+
+     /**====================================================
+     * Ticket Routers
+     * 
+     *=====================================================
      */
 
     socket.on('new-ticket', (ticket, token) => {
@@ -129,12 +135,15 @@ io.of('/').on('connection', (socket) => {
         Ticket.deleteTicket(io, socket, idTicket, token);
     });
 
-    socket.on('edit-ticket', (data) => {
-
+    socket.on('edit-ticket', (ticket, token) => {
+        console.log(socket.id + " edit-ticket")
+        Ticket.editTicket(io, socket, ticket, token)
     });
 
 
-
+    /**
+     * Index
+     */
     console.log('/index: ' + socket.id + " connected!");
 
     socket.emit('joined', { "status": "Ok" })
