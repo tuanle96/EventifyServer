@@ -9,8 +9,14 @@ var bodyParser = require('body-parser');
 var routes = require('./routes/index');
 var user = require('./routes/user');
 
+var fs = require("fs");
+var config = {
+    key: fs.readFileSync('key.pem'),
+    cert: fs.readFileSync('cert.pem')
+};
+
 var app = express();
-var server = require('https').Server(app);
+var server = require('https').Server(config, app);
 //var io = app.io = require('socket.io')(server);
 var io = app.io = require('./routes/io')
 
