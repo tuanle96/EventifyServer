@@ -3,13 +3,16 @@
 /**
  * Module dependencies.
  */
-var debug = require('debug')('www:server');
-var http = require('http');
+var debug = require('debug')('https-server');
+var https = require('https');
 var app = require('../app').app;
 var server = require('../app').server;
-//var io = require('../app').io
 var io = require('../routes/io');
-
+var fs = require("fs");
+var config = {
+    key: fs.readFileSync('key.pem'),
+    cert: fs.readFileSync('cert.pem')
+};
 /**
  * Get port from environment and store in Express.
  */

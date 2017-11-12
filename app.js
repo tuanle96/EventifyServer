@@ -10,7 +10,7 @@ var routes = require('./routes/index');
 var user = require('./routes/user');
 
 var app = express();
-var server = require('http').Server(app);
+var server = require('https').Server(app);
 //var io = app.io = require('socket.io')(server);
 var io = app.io = require('./routes/io')
 
@@ -29,6 +29,16 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// redirect http to https
+function ensureSecure(req, res, next){
+  if(req.secure){
+    return next();
+  };
+  res.redirect('https://'+req.host + req.url);
+};
+
+app.all('*', ensureSecure);
 
 app.use('/', routes);
 app.use('/user', user);
