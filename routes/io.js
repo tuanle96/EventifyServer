@@ -95,8 +95,9 @@ io.of('/').on('connection', (socket) => {
      *=====================================================
      */
 
-    socket.on('get-events', (data) => {
-
+    socket.on('get-events', (token) => {
+        console.log(socket.id + " get-events")
+        Event.getEvents(io, socket, token)
     });
 
     socket.on('get-event', (data) => {

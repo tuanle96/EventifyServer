@@ -11,13 +11,13 @@ var user = require('./routes/user');
 
 var fs = require("fs");
 var config = {
-    key: fs.readFileSync('key.pem'),
+    key: fs.readFileSync('key.pem'),    
     cert: fs.readFileSync('cert.pem')
 };
 
 var app = express();
-var server = require('https').Server(config, app);
-//var io = app.io = require('socket.io')(server);
+//var server = require('https').Server(config, app);
+var server = require('http').Server(app);
 var io = app.io = require('./routes/io')
 
 // view engine setup
@@ -36,23 +36,13 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// redirect http to https
-function ensureSecure(req, res, next){
-  if(req.secure){
-    return next();
-  };
-  res.redirect('https://'+req.host + req.url);
-};
-
-app.all('*', ensureSecure);
-
 app.use('/', routes);
 app.use('/user', user);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   var err = new Error('Not Found');
-  err.status = 404;
+  err.status = 404; 
   next(err);
 });
 
