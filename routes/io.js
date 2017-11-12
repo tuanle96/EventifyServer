@@ -2,6 +2,7 @@ var io = require('socket.io')();
 let User = require('../apps/user/index').user
 let Ticket = require('../apps/ticket/index').ticket
 let Event = require('../apps/event/index').event
+let Type = require('../apps/type/index').type
 
 
 /**
@@ -82,11 +83,6 @@ io.of('/').on('connection', (socket) => {
 
     });
 
-    //get tickets
-    socket.on('get-tickets', (data) => {
-
-    });
-
     //get orders 
     socket.on('get-orders', (data) => {
 
@@ -107,11 +103,10 @@ io.of('/').on('connection', (socket) => {
 
     });
 
-    socket.on('new-event', (data) => {
-
+    socket.on('new-event', (event, token) => {
+        console.log(socket.id + " new-event")
+        Event.newEvent(io, socket, event, token)
     });
-
-
 
 
      /**====================================================
@@ -140,6 +135,17 @@ io.of('/').on('connection', (socket) => {
         Ticket.editTicket(io, socket, ticket, token)
     });
 
+
+    /**====================================================
+     * Types of Event Routers
+     * 
+     *=====================================================
+     */
+
+     socket.on('get-types', (token) => {
+        console.log(socket.id + " get-types");
+        Type.getTypes(io, socket, token);
+     });
 
     /**
      * Index

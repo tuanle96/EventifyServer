@@ -4,7 +4,7 @@ var Schema = mongoose.Schema;
 
 module.exports = mongoose.model('Address', new Schema({
     placeId: {type: String, unique: true},
-    fullAddress: String,
+    address: String,
     latitude: Number,
-    longtitude: Number
+    longitude: Number
 }));

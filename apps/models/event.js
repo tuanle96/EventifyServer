@@ -1,15 +1,21 @@
 'use strict';
 var mongoose = require('../config/index').db;
+var Address = require('./index').address
 var Schema = mongoose.Schema;
 
 module.exports = mongoose.model('Event', new Schema({    
     name: String,
-    address: {type: Schema.ObjectId, ref: 'Address' },
+    address: {
+        placeId: {type: String, unique: true},
+        fullAddress: String,
+        latitude: Number,
+        longtitude: Number
+    },
     dateCreated: Number,
     dateModified: Number,
-    PhotoCoverPath: String,
+    photoCoverPath: String,
     descriptions: String,
-    types: [{type: Schema.ObjectId, ref: 'Type' }],
-    createdBy: {type: Schema.ObjectId, ref: 'User' },
-    tickets: [{type: Schema.ObjectId, ref: 'Ticket' }]      
+    types: [{type: Schema.Types.ObjectId, ref: 'Type' }],
+    createdBy: {type: Schema.Types.ObjectId, ref: 'User' },
+    tickets: [{type: Schema.Types.ObjectId, ref: 'Ticket' }]      
 }));

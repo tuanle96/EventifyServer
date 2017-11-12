@@ -59,7 +59,7 @@ var newTicket = (io, socket, ticket, token) => {
         ticketObject.quantitiesToSell = quantitiesToSell
         ticketObject.dateCreated = Date.now()
         ticketObject.createdBy = idUser
-
+        
         if (descriptions) { ticketObject.descriptions = descriptions }
         if (maxQuantitiesToOrder) { ticketObject.maxQuantitiesToOrder = maxQuantitiesToOrder }
         if (price) { ticketObject.price = price }
@@ -162,7 +162,6 @@ var deleteTicket = (io, socket, idTicket, token) => {
                     "rowsDeleted": result.result.n,
                     "success": result.result.ok
                 }
-
                 socket.emit('delete-ticket', json)
             }
         })
@@ -232,7 +231,7 @@ var editTicket = (io, socket, ticket, token) => {
                     if (err) {
                         workflow.emit('error-handler', err);
                     } else {
-                        socket.emit('edit-ticket', {});
+                        socket.emit('edit-ticket', ticket);
                     }
                 });
             }
