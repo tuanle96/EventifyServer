@@ -11,13 +11,13 @@ var user = require('./routes/user');
 
 var fs = require("fs");
 var config = {
-    key: fs.readFileSync('key.pem'),    
-    cert: fs.readFileSync('cert.pem')
+    key: fs.readFileSync('file.pem'),    
+    cert: fs.readFileSync('file.crt')
 };
 
 var app = express();
-//var server = require('https').Server(config, app);
-var server = require('http').Server(app);
+var server = require('https').Server(config, app);
+//var server = require('http').Server(app);
 var io = app.io = require('./routes/io')
 
 // view engine setup
