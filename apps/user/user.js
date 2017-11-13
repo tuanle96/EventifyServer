@@ -9,38 +9,35 @@ var login = (io, socket, object) => {
     var email = object.email,
         password = object.password
 
-    var errors = [];
     var workflow = new (require('events').EventEmitter)();
 
     workflow.on('validate-parameters', () => {
         if (!email) {
-            errors.push('Email required');
+            workflow.emit('error-handler', 'Email is required');
+            return
         };
         if (!password) {
-            errors.push('Password required');
+            workflow.emit('error-handler', 'Password is required');
+            return
         };
-        if (errors.length) {
-            workflow.emit('errors-handler', errors);
-        } else {
-            workflow.emit('sign-in');
-        };
+
+        workflow.emit('sign-in');
+
     });
 
-    workflow.on('errors-handler', (errors) => {
-        socket.emit('sign-in', { 'errors': errors })
+    workflow.on('error-handler', (error) => {
+        socket.emit('sign-in', [{ 'error': error }])
     });
 
     workflow.on('sign-in', () => {
         User.findOne({ email: email }, (err, user) => {
             if (err) {
-                socket.emit('sign-in', { 'errors': err });
+                socket.emit('sign-in', [{ 'errors': err }]);
             };
             if (!user) {
-                errors.push('This email has been not registered.');
-                workflow.emit('errors', errors);
+                workflow.emit('error-handler', 'This email has been not registered.');
             } else if (user.password !== password) {
-                errors.push('Wrong password.');
-                workflow.emit('errors', errors);
+                workflow.emit('error-handler', 'Wrong password.');
             } else {
 
                 //create token
@@ -51,7 +48,8 @@ var login = (io, socket, object) => {
                 var token = jwt.sign(sign, key, {});
 
                 user.token = token
-                socket.emit('sign-in', user);            }
+                socket.emit('sign-in', [user]);
+            }
         });
     });
 
@@ -74,34 +72,31 @@ var signUp = (io, socket, object) => {
         password = object.password,
         dateCreated = object.dateCreated
 
-    var errors = [];
     var workflow = new (require('events').EventEmitter)();
 
-    workflow.on('validateParams', () => {
+    workflow.on('validate-parameters', () => {
         if (!email) {
-            errors.push('Email required');
+            workflow.emit('error-handler', 'Email required');
+            return
         };
         if (!password) {
-            errors.push('Password required');
+            workflow.emit('error-handler', 'Password required');
+            return
         };
 
         if (!dateCreated) {
             dateCreated = Date.now()
         }
 
-        if (errors.length) {
-            workflow.emit('errors', errors);
-        } else {
-            workflow.emit('insert');
-        }
+        workflow.emit('sign-up');
+
     });
 
-    workflow.on('errors', (errors) => {
-        //socket.emit('sign-up', { 'errors': errors })
-        socket.emit('sign-in', { 'errors': errors });
+    workflow.on('error-handler', (error) => {
+        socket.emit('sign-up', [{ 'error': errors }]);
     });
 
-    workflow.on('insert', () => {
+    workflow.on('sign-up', () => {
 
         var user = new User({
             email: email,
@@ -111,8 +106,7 @@ var signUp = (io, socket, object) => {
 
         user.save((err) => {
             if (err) {
-                errors.push('This email was used.');
-                workflow.emit('errors', errors);
+                workflow.emit('error-handler', 'This email was used.');
             } else {
 
                 //create token
@@ -124,14 +118,12 @@ var signUp = (io, socket, object) => {
 
                 user.token = token
 
-                console.log(user)
-
-                socket.emit('sign-up', user);
+                socket.emit('sign-up', [user]);
             }
         });
     });
 
-    workflow.emit('validateParams');
+    workflow.emit('validate-parameters');
 }
 
 //update password
@@ -140,7 +132,7 @@ var updatePw = (io, socket, currentPw, newPw, token) => {
 
     workflow.on('validate-parameters', () => {
         if (!currentPw) {
-            workflow.emit('errors-handler' , 'Current password is required!');
+            workflow.emit('error-handler', 'Current password is required!');
             return
         }
 
@@ -150,7 +142,7 @@ var updatePw = (io, socket, currentPw, newPw, token) => {
         }
 
         if (!token) {
-            workflow.emit('errors-handler', 'Token not found');
+            workflow.emit('error-handler', 'Token not found');
         } else {
             workflow.emit('validate-token', token);
         }
@@ -161,7 +153,7 @@ var updatePw = (io, socket, currentPw, newPw, token) => {
             if (err) {
                 workflow.emit('errors-handler', err);
             } else {
-                var id = decoded.id 
+                var id = decoded.id
                 if (!id) {
                     workflow.emit('errors-handler', 'Id user not found');
                 } else {
@@ -171,33 +163,33 @@ var updatePw = (io, socket, currentPw, newPw, token) => {
         });
     });
 
-    workflow.on('errorsHandler', (error) => {
-        socket.emit('update-password', { 'errors': errors });
+    workflow.on('error-handler', (error) => {
+        socket.emit('update-password', [{ 'error': error }]);
     });
 
-    workflow.on('updatePassword', (id) => {
+    workflow.on('update-password', (id) => {
         User.findById(id, (err, user) => {
             if (err) {
-                workflow.emit('errorsHandler', err);
+                workflow.emit('error-handler', err);
             } else {
                 user.password = newPw
                 user.save((err) => {
                     if (err) {
-                        workflow.emit('errorsHandler', err);
+                        workflow.emit('error-handler', err);
                     } else {
-                        socket.emit('update-password', {});
+                        socket.emit('update-password', [{}]);
                     }
                 });
             }
         });
     });
 
-    workflow.emit('validateParameters');
+    workflow.emit('validate-parameters');
 }
 
 //update information
 var updateInformations = (io, socket, user, token) => {
-   
+
 }
 
 //like event
@@ -217,43 +209,43 @@ var signOut = (req, res) => {
 var getInformations = (io, socket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
-    workflow.on('validateToken', () => {
+    workflow.on('validate-token', () => {
         if (!token) {
-            workflow.emit('errorHandler', 'Token is required');
+            workflow.emit('error-handler', 'Token is required');
+            return
         }
 
         //validate token        
         jwt.verify(token, key, (err, decoded) => {
             if (err) {
-                workflow.emit('errorHandler', err);
+                workflow.emit('error-handler', err);
             } else {
                 var id = decoded.id
 
                 if (!id) {
-                    workflow.emit('errorHandler', 'Id user not found');
+                    workflow.emit('error-handler', 'Id user not found');
                 } else {
-                    workflow.emit('getInformations', id);
+                    workflow.emit('get-informations', id);
                 }
             }
         });
     });
 
-    workflow.on('errorHandler', (error) => {
-        socket.emit('get-informations', {"errors" : error});
-        
+    workflow.on('error-handler', (error) => {
+        socket.emit('get-informations', [{ "error": error }]);
     });
 
-    workflow.on('getInformations', (id) => {
+    workflow.on('get-informations', (id) => {
         User.findById(id, (err, user) => {
             if (err) {
-                workflow.emit('errorHandler', err);
+                workflow.emit('error-handler', err);
             } else {
-                socket.emit('get-informations', user);
+                socket.emit('get-informations', [user]);
             }
         });
     });
 
-    workflow.emit('validateToken');
+    workflow.emit('validate-token');
 }
 
 //get informations with id

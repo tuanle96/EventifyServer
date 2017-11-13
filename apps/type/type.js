@@ -32,7 +32,7 @@ var getTypes = (io, socket, token) => {
     });
 
     workflow.on('error-handler', (err) => {
-        socket.emit('get-types', err);
+        socket.emit('get-types', [{ 'error': err }]);
     });
 
     workflow.on('get-types', () => {
@@ -40,7 +40,11 @@ var getTypes = (io, socket, token) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                socket.emit('get-types', types);
+                if (types.length == 0) {
+                    socket.emit('get-types', [{}]);
+                } else {
+                    socket.emit('get-types', types);
+                }
             }
         })
     });

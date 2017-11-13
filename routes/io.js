@@ -53,8 +53,9 @@ io.of('/').on('connection', (socket) => {
     });
 
     //like event
-    socket.on('like-event', (data) => {
-
+    socket.on('like-event', (idEvent, token) => {
+        console.log(socket.id + ' like-event');
+        Event.like(io, socket, idEvent, token);
     });
 
     //unlike event
@@ -108,6 +109,12 @@ io.of('/').on('connection', (socket) => {
         console.log(socket.id + " new-event")
         Event.newEvent(io, socket, event, token)
     });
+
+    socket.on('upload-image-cover-event', (data, pathName, token) => {
+        //console.log(data + " | " + pathName + " | " + token)
+        console.log(socket.id + 'upload-image-cover-event');
+        Event.uploadImageCover(io, socket, data, pathName, token);
+    }); 
 
 
      /**====================================================

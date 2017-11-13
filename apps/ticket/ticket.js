@@ -50,7 +50,7 @@ var newTicket = (io, socket, ticket, token) => {
     });
 
     workflow.on('error-handler', (error) => {
-        socket.emit('new-ticket', { "errror": error });
+        socket.emit('new-ticket', [{ "errror": error }]);
     });
 
     workflow.on('new-ticket', (idUser) => {
@@ -59,7 +59,7 @@ var newTicket = (io, socket, ticket, token) => {
         ticketObject.quantitiesToSell = quantitiesToSell
         ticketObject.dateCreated = Date.now()
         ticketObject.createdBy = idUser
-        
+
         if (descriptions) { ticketObject.descriptions = descriptions }
         if (maxQuantitiesToOrder) { ticketObject.maxQuantitiesToOrder = maxQuantitiesToOrder }
         if (price) { ticketObject.price = price }
@@ -70,7 +70,17 @@ var newTicket = (io, socket, ticket, token) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                socket.emit('new-ticket', ticketObject);
+                socket.emit('new-ticket', [ticketObject]);
+
+                Ticket.find({ 'createdBy': idUser })
+                    .populate('User')
+                    .exec((err, tickets) => {
+                        if (tickets.length == 0) {
+                            socket.emit('get-tickets', [{}]);
+                        } else {
+                            socket.emit('get-tickets', tickets);
+                        }
+                    });
             }
         });
     });
@@ -101,18 +111,21 @@ var getTickets = (io, socket, token) => {
     });
 
     workflow.on('error-handler', (err) => {
-        socket.emit('get-tickets', { 'errors': err })
+        socket.emit('get-tickets', [{ 'error': err }])
     });
 
     workflow.on('get-tickets', (idUser) => {
         Ticket.find({ 'createdBy': idUser })
             .populate('User')
             .exec((err, tickets) => {
-                //console.log(err + " | " + tickets)
                 if (err) {
                     workflow.emit('error-handler', err);
                 } else {
-                    socket.emit('get-tickets', tickets);
+                    if (tickets.length == 0) {
+                        socket.emit('get-tickets', [{}]);
+                    } else {
+                        socket.emit('get-tickets', tickets);
+                    }
                 }
             });
     });
@@ -148,7 +161,7 @@ var deleteTicket = (io, socket, idTicket, token) => {
     });
 
     workflow.on('error-handler', (err) => {
-        socket.emit('delete-ticket', { "errors": err });
+        socket.emit('delete-ticket', [{ "error": err }]);
     })
 
     workflow.on('delete-ticket', (idTicket) => {
@@ -162,7 +175,7 @@ var deleteTicket = (io, socket, idTicket, token) => {
                     "rowsDeleted": result.result.n,
                     "success": result.result.ok
                 }
-                socket.emit('delete-ticket', json)
+                socket.emit('delete-ticket', [json])
             }
         })
     });
@@ -208,7 +221,7 @@ var editTicket = (io, socket, ticket, token) => {
     });
 
     workflow.on('error-handler', (error) => {
-        socket.emit('edit-ticket', { 'errors': errors });
+        socket.emit('edit-ticket', [{ 'error': error }]);
     });
 
     workflow.on('edit-ticket', (idTicket) => {
@@ -231,11 +244,11 @@ var editTicket = (io, socket, ticket, token) => {
                     if (err) {
                         workflow.emit('error-handler', err);
                     } else {
-                        socket.emit('edit-ticket', ticket);
+                        socket.emit('edit-ticket', [ticket]);
                     }
                 });
             }
-        });       
+        });
     });
 
     workflow.emit('validate-parameters');
