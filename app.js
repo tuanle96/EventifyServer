@@ -19,7 +19,8 @@ var fs = require("fs");
 var ssl = {
   key: fs.readFileSync('estenials.key'),
   cert: fs.readFileSync('2_estenials.me.crt'),
-  ca: fs.readFileSync('1_Intermediate.crt'),
+  ca: [fs.readFileSync('1_Intermediate.crt'), 
+    fs.readFileSync('StartComBRSSLICA.cacert.pem'), fs.readFileSync('root.crt')],
   passphrase: 'anhtuan',
 };
 
