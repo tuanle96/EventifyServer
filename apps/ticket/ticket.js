@@ -136,6 +136,8 @@ var getTickets = (io, socket, token) => {
 var deleteTicket = (io, socket, idTicket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
+    console.log(idTicket)
+
     workflow.on('validate-parameters', () => {
         if (!idTicket) {
             workflow.emit('error-handler', 'Id of ticket requied');
@@ -176,6 +178,7 @@ var deleteTicket = (io, socket, idTicket, token) => {
                     "success": result.result.ok
                 }
                 socket.emit('delete-ticket', [json])
+                getTickets(io, socket, token)
             }
         })
     });
