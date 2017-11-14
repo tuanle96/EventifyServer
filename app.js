@@ -19,8 +19,7 @@ var fs = require("fs");
 var ssl = {
   key: fs.readFileSync('estenials.key'),
   cert: fs.readFileSync('2_estenials.me.crt'),
-  ca: [fs.readFileSync('1_Intermediate.crt'),
-  fs.readFileSync('root.crt')],
+  ca: fs.readFileSync('1_Intermediate.crt'),
   passphrase: 'anhtuan',
 };
 
@@ -50,7 +49,7 @@ function ensureSecure(req, res, next) {
   if (req.secure) {
     return next();
   };
-  res.redirect('https://' + req.hostname + ":" + 3000 + req.url);
+  res.redirect('https://' + req.hostname + req.url);
 };
 
 app.all('*', ensureSecure);
