@@ -104,15 +104,15 @@ var newEvent = (io, socket, event, token) => {
         event.timeStart = timeStart
         event.timeEnd = timeEnd
 
-        var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
-        event.photoCoverPath = path
+        //var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+        //event.photoCoverPath = path
 
         event.save((err) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                socket.emit('new-event', [{ "success": true }]);                
-                getEvent(io, socket, token)                
+                socket.emit('new-event', [{ "success": true }]);
+                getEvents(io, socket, token)
             }
         });
     });
@@ -160,12 +160,10 @@ var getEvents = (io, socket, token) => {
                     events.forEach((event) => {
                         var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
                         event.photoCoverPath = path
-                        
                         if (event.createdBy) {
                             User.findById(event.createdBy, (err, user) => {
                                 check += 1
                                 event.createdBy = user
-                                console.log(event)
                                 if (check === events.length) {
                                     socket.emit('get-events', events);
                                 }
@@ -244,6 +242,49 @@ var uploadImageCover = (io, socket, imgData, imgPath, token) => {
     workflow.emit('validate-parameters');
 }
 
+var getLikedEvents = (io, socket, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!token) {
+            workflow.emit('error-handler', 'Token of user is required!')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err)
+            } else {
+                let idUser = decoded.id
+                if (!idUser) {
+                    workflow.emit('error-handler', 'Id of User is required!')
+                } else {
+                    workflow.emit('get-liked-events', idUser)
+                }
+            }
+        })
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('get-liked-events', [{ 'error': err }]);
+    });
+
+    workflow.on('get-liked-events', (idUser) => {
+        User.findById(idUser, 'liked', (err, user) => {
+            if (user.liked) {
+                socket.emit('get-liked-events', user.liked)
+                //console.log(user._id)
+                //io.emit('get-liked-events', [user.liked, user._id])
+            }
+        });
+    });
+
+    workflow.emit('validate-parameters');
+}
+
 var like = (io, socket, idEvent, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -269,7 +310,7 @@ var like = (io, socket, idEvent, token) => {
                 if (!idUser) {
                     workflow.emit('error-handler', 'Id of User is required');
                 } else {
-                    console.log(idEvent + " | " + idUser)
+                    //console.log(idEvent + " | " + idUser)
                     workflow.emit('like-event', (idUser));
                 }
             }
@@ -281,48 +322,25 @@ var like = (io, socket, idEvent, token) => {
     });
 
     workflow.on('like-event', (idUser) => {
-        console.log(idEvent + " | " + idUser)
-        var like = new Like({
-            idEvent: idEvent,
-            idUser: idUser,
-            dateLiked: Date.now()
-        });
+        User.findById(idUser, (err, user) => {
+            let likes = user.liked
 
-        console.log(like)
-
-        //save to like collection
-        like.save((err) => {
-            if (err) {
-                workflow.emit('error-handler', err);
-            } else {
-                //save to liked object in event collection
-                Event.findById(idEvent, (err, event) => {
-                    if (!event.liked) {
-                        event.liked = []
-                    }
-                    event.liked.push(like._id)
-                    event.save((err) => {
-                        if (err) {
-                            workflow.emit('error-handler', err);
-                        } else {
-                            //save to liked object in user collection
-                            User.findById(idUser, (err, user) => {
-
-                                if (!user.liked) { user.liked = [] }
-
-                                user.liked.push(like._id);
-                                user.save((err) => {
-                                    if (err) {
-                                        workflow.emit('error-handler', err);
-                                    } else {
-                                        socket.emit('like-event', [like]);
-                                    }
-                                })
-                            })
-                        }
-                    })
-                });
+            if (!likes) {
+                user.liked = []
             }
+
+            if (!user.liked.find((idEventLiked) => {
+                return idEvent == idEventLiked
+            })) {
+                user.liked.push(idEvent)
+                user.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                    } else {
+                        getLikedEvents(io, socket, token);
+                    }
+                });
+            } 
         });
     });
     workflow.emit('validate-parameters');
@@ -332,23 +350,58 @@ var unlike = (io, socket, idEvent, token) => {
     var workflow = new (require('events').EventEmitter)();
 
     workflow.on('validate-parameters', () => {
+        if (!idEvent) {
+            workflow.emit('error-handler', 'Id of Event is required!')
+            return
+        }
 
+        if (!token) {
+            workflow.emit('error-handler', 'Token of User is required!');
+            return
+        }
+        workflow.emit('validate-token', token);
     });
 
     workflow.on('validate-token', (token) => {
-
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                var idUser = decoded.id
+                if (!idUser) {
+                    workflow.emit('error-handler', 'Id of User is required');
+                } else {
+                    workflow.emit('unlike-event', idUser);
+                }
+            }
+        });
     });
 
     workflow.on('error-handler', (err) => {
-        socket.emit('xxx', xxx);
+        socket.emit('unlike-event', [{ 'error': err }]);
     });
 
-    workflow.on('xxx')
+    workflow.on('unlike-event', (idUser) => {
+        User.findById(idUser, (err, user) => {
+            let likes = user.liked
+            if (!likes) {
+                return
+            }
 
+            let index = user.liked.indexOf(idEvent)
+            if (index !== -1) { // co 
+                user.liked.splice(index, 1)
+                user.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                    } else {
+                        getLikedEvents(io, socket, token);
+                    }
+                });
+            } 
+        });
+    });
     workflow.emit('validate-parameters');
-
-
-
 }
 
 module.exports = {
@@ -357,6 +410,7 @@ module.exports = {
     uploadImageCover: uploadImageCover,
     router: router,
     like: like,
-    unlike: unlike
+    unlike: unlike,
+    getLikedEvents: getLikedEvents
 }
 

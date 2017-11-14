@@ -59,8 +59,9 @@ io.of('/').on('connection', (socket) => {
     });
 
     //unlike event
-    socket.on('unlike-event', (data) => {
-
+    socket.on('unlike-event', (idEvent, token) => {
+        console.log(socket.id + ' unlike-event');
+        Event.unlike(io, socket, idEvent, token)
     });
 
     //new order event
@@ -73,6 +74,11 @@ io.of('/').on('connection', (socket) => {
         console.log(socket.id + " get-informations");
         User.getInformations(io, socket, token)
     });
+
+    socket.on('get-liked-events', (token) => {
+        console.log(socket.id + " get-liked-events")
+        Event.getLikedEvents(io, socket, token)
+    })
 
     //get informations with id
     socket.on('get-informations-with-id', (data) => {

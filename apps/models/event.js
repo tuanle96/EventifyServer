@@ -31,6 +31,5 @@ module.exports = mongoose.model('Event', new Schema({
         price: Number
     }],
     timeStart: Number,
-    timeEnd: Number,
-    liked: [{_id: String}]
+    timeEnd: Number
 }));

@@ -11,5 +11,5 @@ module.exports = mongoose.model('User', new Schema({
     fullName: String,
     phoneNumber: String,
     photoPath: String,
-    liked: [{ _id: String }]
+    liked: [String]
 }));
