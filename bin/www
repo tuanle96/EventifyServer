@@ -22,7 +22,7 @@ app.set('portHttp', portHttp)
  * Listen on provided port, on all network interfaces.
  */
 
-//serverHttps.listen(portHttps);
+serverHttps.listen(portHttps);
 serverHttp.listen(portHttp);
 serverHttp.on('error', onError);
 serverHttp.on('listening', onListening);

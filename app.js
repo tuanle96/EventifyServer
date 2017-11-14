@@ -11,13 +11,21 @@ var user = require('./routes/user');
 var uploads = require('./routes/uploads');
 
 var fs = require("fs");
-var config = {
-  key: fs.readFileSync('file.pem'),
-  cert: fs.readFileSync('file.crt')
+// var config = {
+//   key: fs.readFileSync('file.pem'),
+//   cert: fs.readFileSync('file.crt')
+// };
+
+var ssl = {
+  key: fs.readFileSync('estenials.key'),
+  cert: fs.readFileSync('2_estenials.me.crt'),
+  ca: [fs.readFileSync('1_Intermediate.crt'),
+  fs.readFileSync('root.crt')],
+  passphrase: 'anhtuan',
 };
 
 var app = express();
-var serverHttps = require('https').Server(config, app);
+var serverHttps = require('https').Server(ssl, app);
 var serverHttp = require('http').Server(app);
 var io = app.io = require('./routes/io')
 
@@ -38,14 +46,14 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // redirect http to https
-// function ensureSecure(req, res, next) {
-//   if (req.secure) {
-//     return next();
-//   };
-//   res.redirect('https://' + req.hostname + ":" + 3000 + req.url);
-// };
+function ensureSecure(req, res, next) {
+  if (req.secure) {
+    return next();
+  };
+  res.redirect('https://' + req.hostname + ":" + 3000 + req.url);
+};
 
-// app.all('*', ensureSecure);
+app.all('*', ensureSecure);
 
 app.use('/', routes);
 app.use('/user', user);
