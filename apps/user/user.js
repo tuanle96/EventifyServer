@@ -67,10 +67,12 @@ var loginWithGooglePlus = (req, res) => {
 
 //sign up with email & password
 var signUp = (io, socket, object) => {
-
+    console.log(object)
     var email = object.email,
         password = object.password,
-        dateCreated = object.dateCreated
+        dateCreated = object.dateCreated,
+        fullName = object.fullName,
+        phoneNumber = object.phoneNumber
 
     var workflow = new (require('events').EventEmitter)();
 
@@ -84,6 +86,16 @@ var signUp = (io, socket, object) => {
             return
         };
 
+        if (!fullName) {
+            workflow.emit('error-handler', 'Full name required');
+            return
+        }
+
+        if (!phoneNumber) {
+            workflow.emit('error-handler', 'Phone nubmer required');
+            return
+        }
+
         if (!dateCreated) {
             dateCreated = Date.now()
         }
@@ -93,7 +105,7 @@ var signUp = (io, socket, object) => {
     });
 
     workflow.on('error-handler', (error) => {
-        socket.emit('sign-up', [{ 'error': errors }]);
+        socket.emit('sign-up', [{ 'error': error }]);
     });
 
     workflow.on('sign-up', () => {
@@ -101,7 +113,9 @@ var signUp = (io, socket, object) => {
         var user = new User({
             email: email,
             password: password,
-            dateCreated: dateCreated
+            dateCreated: dateCreated,
+            fullName: fullName,
+            phoneNumber: phoneNumber
         });
 
         user.save((err) => {

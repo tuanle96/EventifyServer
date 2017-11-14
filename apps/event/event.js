@@ -28,8 +28,7 @@ var newEvent = (io, socket, event, token) => {
 
     var workflow = new (require('events').EventEmitter)();
 
-    workflow.on('validate-parameters', () => {
-        console.log(event)
+    workflow.on('validate-parameters', () => {  
         if (!name) {
             workflow.emit('error-handler', "Name of event can not empty");
             return

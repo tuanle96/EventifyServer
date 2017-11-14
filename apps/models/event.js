@@ -33,3 +33,4 @@ module.exports = mongoose.model('Event', new Schema({
     timeStart: Number,
     timeEnd: Number
 }));
+
