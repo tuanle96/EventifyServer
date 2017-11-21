@@ -44,12 +44,12 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // redirect http to https
-// function ensureSecure(req, res, next) {
-//   if (req.secure) {
-//     return next();
-//   };
-//   res.redirect('https://' + req.hostname + req.url);
-// };
+ function ensureSecure(req, res, next) {
+   if (req.secure) {
+     return next();
+   };
+   res.redirect('https://' + req.hostname + req.url);
+ };
 
 // app.all('*', ensureSecure);
 

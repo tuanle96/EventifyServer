@@ -14,7 +14,7 @@ var io = require('../routes/io');
  */
 
 var portHttps = normalizePort(process.env.PORT || '443'); //443
-var portHttp = normalizePort(process.env.PORT || '8080'); //80
+var portHttp = normalizePort(process.env.PORT || '80'); //80
 app.set('portHttps', portHttps);
 app.set('portHttp', portHttp)
 
@@ -22,10 +22,10 @@ app.set('portHttp', portHttp)
  * Listen on provided port, on all network interfaces.
  */
 
-//serverHttps.listen(portHttps);
+serverHttps.listen(portHttps);
 serverHttp.listen(portHttp);
-serverHttp.on('error', onError);
-serverHttp.on('listening', onListening);
+serverHttps.on('error', onError);
+serverHttps.on('listening', onListening);
 //serverHttps.on('error', onError);
 //serverHttps.on('listening', onListening);
 
@@ -37,7 +37,7 @@ serverHttp.on('listening', onListening);
 // var server = http.createServer(app)
 // var io = app.io
 // io.attach(server);
-io.attach(serverHttp)
+io.attach(serverHttps)
 /**
  * Normalize a port into a number, string, or false.
  */
@@ -67,9 +67,9 @@ function onError(error) {
     throw error;
   }
 
-  var bind = typeof portHttp === 'string'
-    ? 'Pipe ' + portHttp
-    : 'Port ' + portHttp;
+  var bind = typeof portHttps === 'string'
+    ? 'Pipe ' + portHttps
+    : 'Port ' + portHttps;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
@@ -91,10 +91,10 @@ function onError(error) {
  */
 
 function onListening() {
-  //var addr = serverHttp.address();
-  var addr = "192.168.31.96"
+  var addr = serverHttps.address();
+  //var addr = ""
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
-    : 'port ' + addr.portHttp;
+    : 'port ' + addr.portHttps;
   debug('Listening on ' + addr + "/" + bind);
 }
