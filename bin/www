@@ -36,7 +36,7 @@ serverHttps.on('listening', onListening);
  */
 // var server = http.createServer(app)
 // var io = app.io
-// io.attach(server);
+io.attach(serverHttp);
 io.attach(serverHttps)
 /**
  * Normalize a port into a number, string, or false.
