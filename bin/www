@@ -14,18 +14,18 @@ var io = require('../routes/io');
  */
 
 var portHttps = normalizePort(process.env.PORT || '443'); //443
-var portHttp = normalizePort(process.env.PORT || '80'); //80
-app.set('portHttps', portHttps);
+var portHttp = normalizePort(process.env.PORT || '8080'); //80
+//app.set('portHttps', portHttps);
 app.set('portHttp', portHttp)
 
 /**
  * Listen on provided port, on all network interfaces.
  */
 
-serverHttps.listen(portHttps);
+//serverHttps.listen(portHttps);
 serverHttp.listen(portHttp);
-serverHttps.on('error', onError);
-serverHttps.on('listening', onListening);
+serverHttp.on('error', onError);
+serverHttp.on('listening', onListening);
 //serverHttps.on('error', onError);
 //serverHttps.on('listening', onListening);
 
@@ -91,10 +91,10 @@ function onError(error) {
  */
 
 function onListening() {
-  var addr = serverHttps.address();
+  var addr = serverHttp.address();
   //var addr = ""
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
-    : 'port ' + addr.portHttps;
+    : 'port ' + addr.portHttp;
   debug('Listening on ' + addr + "/" + bind);
 }

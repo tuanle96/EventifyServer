@@ -19,10 +19,9 @@ var login = (io, socket, object) => {
         if (!password) {
             workflow.emit('error-handler', 'Password is required');
             return
-        };
+        };               
 
         workflow.emit('sign-in');
-
     });
 
     workflow.on('error-handler', (error) => {
@@ -283,6 +282,10 @@ var getMyOrders = (req, res) => {
 
 //new order tickets
 var newOrder = (req, res) => {
+}
+
+var newTicket = (io, socket, ticket, token) => {
+    
 }
 
 module.exports = {

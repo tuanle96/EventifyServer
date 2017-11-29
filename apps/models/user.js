@@ -11,5 +11,14 @@ module.exports = mongoose.model('User', new Schema({
     fullName: String,
     phoneNumber: String,
     photoPath: String,
-    liked: [String]
+    liked: [{ type: Schema.Types.ObjectId, ref: 'Like' }],
+    tickets: [{
+        name: String,
+        maxToOrder: { type: Number, default: 10 },
+        dateModified: Number,
+        dateCreated: Number,
+        quantity: Number,
+        price: Number,
+        description: String
+    }]
 }));

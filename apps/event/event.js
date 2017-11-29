@@ -2,6 +2,7 @@
 
 var express = require('express');
 var router = express.Router();
+var mongoose = require('mongoose');
 var Ticket = require('../models/index').ticket;
 var Event = require('../models/index').event;
 var User = require('../models/index').user;
@@ -11,117 +12,132 @@ var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
 var fs = require('fs');
 var request = require('request');
+var lodash = require('lodash');
 let pathImageCover = 'uploads/Images/Events/Cover/'
 
 var newEvent = (io, socket, event, token) => {
-    
-        var name = event.name,
-            descriptions = event.descriptions,
-            address = event.address,
-            dateCreated = Date.now(),
-            photoCoverPath = event.photoCoverPath,
-            types = event.types,
-            createdBy = event.createdBy,
-            tickets = event.tickets,
-            timeStart = event.timeStart,
-            timeEnd = event.timeEnd
-            descriptions = event.descriptions
-    
-        var workflow = new (require('events').EventEmitter)();
-    
-        workflow.on('validate-parameters', () => {  
-            if (!name) {
-                workflow.emit('error-handler', "Name of event can not empty");
-                return
-            }
-    
-            if (!address) {
-                workflow.emit('error-handler', "Address of event can not empty")
-                return
-            }
-    
-            if (!photoCoverPath) {
-                workflow.emit('error-handler', "PhotoCoverPath of event can not empty")
-                return
-            }
-    
-            if (!types || types.count == 0) {
-                workflow.emit('error-handler', "Types of event can not empty")
-                return
-            }
-    
-            if (!tickets || tickets.count == 0) {
-                workflow.emit('error-handler', "Ticket of event can not empty")
-                return
-            }
-    
-            if (!timeStart) {
-                workflow.emit('error-handler', "Time start of event can not empty")
-                return
-            }
-    
-            if (!timeEnd) {
-                workflow.emit('error-handler', "Time end of event can not empty")
-                return
-            }
-    
-            if (!token) {
-                workflow.emit('error-handler', 'Token not found');
+
+    var name = event.name,
+        descriptions = event.descriptions,
+        address = event.address,
+        dateCreated = Date.now(),
+        photoCoverPath = event.photoCoverPath,
+        types = event.types,
+        createdBy = event.createdBy,
+        tickets = event.tickets,
+        timeStart = event.timeStart,
+        timeEnd = event.timeEnd,
+        descriptions = event.descriptions
+
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!name) {
+            workflow.emit('error-handler', "Name of event can not empty");
+            return
+        }
+
+        if (!address) {
+            workflow.emit('error-handler', "Address of event can not empty")
+            return
+        }
+
+        if (!photoCoverPath) {
+            workflow.emit('error-handler', "PhotoCoverPath of event can not empty")
+            return
+        }
+
+        if (!types || types.count === 0) {
+            workflow.emit('error-handler', "Types of event can not empty")
+            return
+        }
+
+        if (!tickets || tickets.count === 0) {
+            workflow.emit('error-handler', "Ticket of event can not empty")
+            return
+        }
+
+        if (!timeStart) {
+            workflow.emit('error-handler', "Time start of event can not empty")
+            return
+        }
+
+        if (!timeEnd) {
+            workflow.emit('error-handler', "Time end of event can not empty")
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token not found');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err)
             } else {
-                workflow.emit('validate-token', token);
+                var id = decoded.id
+                if (!id) {
+                    workflow.emit('error-handler', 'Id user not found')
+                } else {
+                    workflow.emit('new-event', id)
+                }
             }
         });
-    
-        workflow.on('validate-token', (token) => {
-            jwt.verify(token, key, (err, decoded) => {
-                if (err) {
-                    workflow.emit('error-handler', err)
+    });
+
+    workflow.on('error-handler', (error) => {
+        socket.emit('new-event', [{ "errror": error }]);
+    });
+
+    workflow.on('new-event', (idUser) => {
+        var event = new Event()
+        event.name = name
+        event.dateCreated = dateCreated
+        event.createdBy = idUser
+        event.photoCoverPath = photoCoverPath
+        event.address = address
+        event.types = types
+        event.createdBy = idUser
+        event.timeStart = timeStart
+        event.timeEnd = timeEnd
+
+        if (descriptions) {
+            event.descriptions = descriptions
+        }
+
+        lodash.forEach(tickets, (ticket) => {
+            ticket._id = mongoose.Types.ObjectId()
+        });
+
+        event.tickets = tickets;
+
+        newTicket(tickets, (result) => {
+            if (result.error !== null) {
+                workflow.emit('error-handler', result.error);
+            } else {
+                var res = result.response;
+                if (res) {
+                    event.save((err) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                        } else {
+                            socket.emit('new-event', [{ "success": true }]);
+                            getEvents(io, socket, token)
+                        }
+                    });
                 } else {
-                    var id = decoded.id
-                    if (!id) {
-                        workflow.emit('error-handler', 'Id user not found')
-                    } else {
-                        workflow.emit('new-event', id)
-                    }
+                    workflow.emit('error-handler', 'Response not found');
                 }
-            });
-        });
-    
-        workflow.on('error-handler', (error) => {
-            socket.emit('new-event', [{ "errror": error }]);
-        });
-    
-        workflow.on('new-event', (idUser) => {
-            var event = new Event()
-            event.name = name
-            event.dateCreated = dateCreated
-            event.createdBy = idUser
-            event.photoCoverPath = photoCoverPath
-            event.address = address
-            event.tickets = tickets
-            event.types = types
-            event.createdBy = idUser
-            event.timeStart = timeStart
-            event.timeEnd = timeEnd
-    
-            if (descriptions) {
-                event.descriptions = descriptions
             }
-    
-            //var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
-            //event.photoCoverPath = path
-    
-            event.save((err) => {
-                if (err) {
-                    workflow.emit('error-handler', err);
-                } else {
-                    socket.emit('new-event', [{ "success": true }]);
-                    getEvents(io, socket, token)
-                }
-            });
         });
-        workflow.emit('validate-parameters');
-    }
+    });
+
+    workflow.emit('validate-parameters');
+}
 var getEvents = (io, socket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -156,31 +172,53 @@ var getEvents = (io, socket, token) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                if (events.length == 0) {
-                    socket.emit('get-events', [{}])
-                } else {
-                    var check = 0;
-                    events.forEach((event) => {
-                        var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
-                        event.photoCoverPath = path
-                        if (event.createdBy) {
-                            User.findById(event.createdBy, (err, user) => {
-                                check += 1
-                                event.createdBy = user
-                                if (check === events.length) {
-                                    socket.emit('get-events', events);
+
+                if (!events) { socket.emit('get-events', [{}]); return }
+
+                if (events.length === 0) { socket.emit('get-events', [{}]); return }
+
+                var checkEvent = 0, checkTicket = 0;
+                events.forEach((event) => {
+
+                    //get url photoCover
+                    var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+                    event.photoCoverPath = path
+
+                    var ticketsObject = []
+                    checkEvent += 1
+                    //get tickets
+                    let tickets = event.tickets
+                    if (tickets || tickets.length > 0) {
+                        lodash.forEach(tickets, (id) => {
+                            getTicket(id, (result) => {
+                                if (result.error) {
+                                    workflow.emit('error-handler', result.error)
+                                } else {
+                                    if (result.ticket) {
+                                        ticketsObject.push(result.ticket);
+                                        checkTicket += 1
+
+                                        if (checkTicket === tickets.length) {
+                                            event.tickets = ticketsObject;
+                                            checkTicket = 0;
+
+                                            if (checkEvent === events.length) {
+                                                socket.emit('get-events', events);
+                                            }
+                                        }
+                                    } else {
+                                        workflow.emit('error-handler', 'Ticket of Event not found');
+                                    }
                                 }
-                            })
-                        } else {
-                            check += 1
-                        }
-                    });
-                }
+                            });
+                        })
+                    } else {
+                        check += 1
+                    }
+                });
             }
         });
     });
-
-
 
     workflow.emit('validate-parameters');
 }
@@ -343,7 +381,7 @@ var like = (io, socket, idEvent, token) => {
                         getLikedEvents(io, socket, token);
                     }
                 });
-            } 
+            }
         });
     });
     workflow.emit('validate-parameters');
@@ -401,10 +439,32 @@ var unlike = (io, socket, idEvent, token) => {
                         getLikedEvents(io, socket, token);
                     }
                 });
-            } 
+            }
         });
     });
     workflow.emit('validate-parameters');
+}
+
+function newTicket(tickets, callback) {
+    Ticket.insertMany(tickets, (err, ticket) => {
+        let result = {
+            "error": err,
+            "response": ticket
+        }
+        console.log(result);
+
+        return callback(result)
+    });
+}
+
+function getTicket(id, callback) {
+    Ticket.findById(id, (err, ticket) => {
+        let result = {
+            "error": err,
+            "ticket": ticket
+        }
+        return callback(result)
+    })
 }
 
 module.exports = {

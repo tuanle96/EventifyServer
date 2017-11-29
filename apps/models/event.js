@@ -3,6 +3,16 @@ var mongoose = require('../config/index').db;
 var Address = require('./index').address
 var Schema = mongoose.Schema;
 
+let ticketRef = {
+    type: Schema.Types.ObjectId,
+    ref: "Ticket"
+}
+
+let userRef = {
+    type: Schema.Types.ObjectId,
+    ref: "User"
+}
+
 module.exports = mongoose.model('Event', new Schema({
     name: String,
     address: {
@@ -16,20 +26,8 @@ module.exports = mongoose.model('Event', new Schema({
     photoCoverPath: String,
     descriptions: String,
     types: [{ _id: String, name: String }],
-    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    tickets: [{
-        _id: String,
-        name: String,
-        descriptions: String,
-        createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-        dateCreated: Number,
-        dateModified: Number,
-        quantitiesToSell: Number,
-        maxQuantitiesToOrder: Number,
-        quantitiesSold: Number,
-        quantitiesRemaining: Number,
-        price: Number
-    }],
+    createdBy: userRef,
+    tickets: [{ ticketRef }],
     timeStart: Number,
     timeEnd: Number
 }));

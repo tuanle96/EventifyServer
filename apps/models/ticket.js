@@ -4,13 +4,13 @@ var Schema = mongoose.Schema;
 
 module.exports = mongoose.model('Ticket', new Schema({
     name: String,
-    descriptions: String,
+    description: String,
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     dateCreated: Number,
     dateModified: Number,
-    quantitiesToSell: Number,
-    maxQuantitiesToOrder: Number,
+    quantity: Number,
+    price: Number,
+    maxToOrder: Number,
     quantitiesSold: Number,
-    quantitiesRemaining: Number,
-    price: Number
+    quantitiesRemaining: Number    
 }));
