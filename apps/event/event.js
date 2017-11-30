@@ -110,10 +110,9 @@ var newEvent = (io, socket, event, token) => {
         }
 
         lodash.forEach(tickets, (ticket) => {
-            ticket._id = mongoose.Types.ObjectId()
-        });
-
-        event.tickets = tickets;
+            ticket._id = mongoose.Types.ObjectId();
+            event.tickets.push(ticket);
+        });        
 
         newTicket(tickets, (result) => {
             if (result.error !== null) {
@@ -177,13 +176,12 @@ var getEvents = (io, socket, token) => {
 
                 if (events.length === 0) { socket.emit('get-events', [{}]); return }
 
-                var checkEvent = 0, checkTicket = 0;
+                var eventsModified = events
+                var checkEvent = 0, checkTicket = 0;       
                 events.forEach((event) => {
-
                     //get url photoCover
                     var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
                     event.photoCoverPath = path
-
                     var ticketsObject = []
                     checkEvent += 1
                     //get tickets
@@ -191,6 +189,7 @@ var getEvents = (io, socket, token) => {
                     if (tickets || tickets.length > 0) {
                         lodash.forEach(tickets, (id) => {
                             getTicket(id, (result) => {
+                                
                                 if (result.error) {
                                     workflow.emit('error-handler', result.error)
                                 } else {
@@ -198,11 +197,10 @@ var getEvents = (io, socket, token) => {
                                         ticketsObject.push(result.ticket);
                                         checkTicket += 1
 
-                                        if (checkTicket === tickets.length) {
-                                            event.tickets = ticketsObject;
-                                            checkTicket = 0;
-
+                                        if (checkTicket === tickets.length) { 
+                                            event.tickets = ticketsObject        
                                             if (checkEvent === events.length) {
+                                                console.log(event);        
                                                 socket.emit('get-events', events);
                                             }
                                         }

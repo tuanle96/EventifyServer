@@ -3,11 +3,6 @@ var mongoose = require('../config/index').db;
 var Address = require('./index').address
 var Schema = mongoose.Schema;
 
-let ticketRef = {
-    type: Schema.Types.ObjectId,
-    ref: "Ticket"
-}
-
 let userRef = {
     type: Schema.Types.ObjectId,
     ref: "User"
@@ -27,8 +22,23 @@ module.exports = mongoose.model('Event', new Schema({
     descriptions: String,
     types: [{ _id: String, name: String }],
     createdBy: userRef,
-    tickets: [{ ticketRef }],
+    tickets: [{
+        _id: { type: Schema.Types.ObjectId, ref: "Ticket" },
+        name: String,
+        description: String,
+        createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        dateCreated: Number,
+        dateModified: Number,
+        quantity: Number,
+        price: Number,
+        maxToOrder: Number,
+        quantitiesSold: Number,
+        quantitiesRemaining: Number
+    }],
     timeStart: Number,
     timeEnd: Number
 }));
+
+
+
 
