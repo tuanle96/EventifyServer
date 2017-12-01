@@ -5,12 +5,14 @@ var Schema = mongoose.Schema;
 module.exports = mongoose.model('Order', new Schema({
     orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
     dateOrder: Number,
-    event: { type: Schema.Types.ObjectId, ref: 'Event' },    
+    event: { type: Schema.Types.ObjectId, ref: 'Event' },
     tickets: [{
-        _id: { type: Schema.Types.Number, unique: true },
+        _id: { type: Schema.Types.ObjectId, ref: 'Ticket' },
         quantity: Number,
-        qrCode: String
+        qrCodePath: String
     }],
-    fullName: String,
-    phoneNumber: Number
+    informations: {
+        fullName: String,
+        phoneNumber: Number
+    }
 }));

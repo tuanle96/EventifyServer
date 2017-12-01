@@ -7,6 +7,7 @@ var order = require('./order');
 var type = require('./type');
 var address = require('./address');
 var like = require('./like');
+var orderSession = require('./orderSession');
 
 module.exports = {
     event: event,
@@ -15,5 +16,6 @@ module.exports = {
     order: order,
     type: type,
     address: address,
-    like: like
+    like: like,
+    orderSession: orderSession
 }

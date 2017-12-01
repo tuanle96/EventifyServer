@@ -1,8 +1,9 @@
 var io = require('socket.io')();
-let User = require('../apps/user/index').user
-let Ticket = require('../apps/ticket/index').ticket
-let Event = require('../apps/event/index').event
-let Type = require('../apps/type/index').type
+let User = require('../apps/user/index').user;
+let Ticket = require('../apps/ticket/index').ticket;
+let Event = require('../apps/event/index').event;
+let Type = require('../apps/type/index').type;
+let Order = require('../apps/order/index').order;
 
 
 /**
@@ -107,8 +108,9 @@ io.of('/').on('connection', (socket) => {
         Event.getEvents(io, socket, token)
     });
 
-    socket.on('get-event', (data) => {
-
+    socket.on('get-event', (idEvent, token) => {
+        console.log(socket.id + " get-event")
+        Event.getEvent(io, socket, idEvent, token)
     });
 
     socket.on('new-event', (event, token) => {
@@ -120,14 +122,14 @@ io.of('/').on('connection', (socket) => {
         //console.log(data + " | " + pathName + " | " + token)
         console.log(socket.id + 'upload-image-cover-event');
         Event.uploadImageCover(io, socket, data, pathName, token);
-    }); 
+    });
 
 
-     /**====================================================
-     * Ticket Routers
-     * 
-     *=====================================================
-     */
+    /**====================================================
+    * Ticket Routers
+    * 
+    *=====================================================
+    */
 
     socket.on('new-ticket', (ticket, token) => {
         console.log(socket.id + " new-ticket");
@@ -156,10 +158,41 @@ io.of('/').on('connection', (socket) => {
      *=====================================================
      */
 
-     socket.on('get-types', (token) => {
+    socket.on('get-types', (token) => {
         console.log(socket.id + " get-types");
         Type.getTypes(io, socket, token);
-     });
+    });
+
+    /**====================================================
+    * Order Routers
+    * 
+    *=====================================================
+    */
+
+    socket.on('begin-order', (orderSession, token) => {
+        console.log(socket.id + " order-Session");
+        Order.beginOrder(io, socket, orderSession, token);
+    });
+
+    socket.on('order', (order, token) => {
+        console.log(socket.id + " order");
+        Order.order(io, socket, order, token);
+    });
+
+    socket.on('cancel-order', (orderSession, token) => {
+        console.log(socket.id + " cancel-order");
+        Order.endSessionOrder(io, socket, orderSession, token);
+    });
+
+    socket.on('get-orders', (token) => {
+        console.log(socket.id + " get-orders");
+        Order.getOrdersByToken(io, socket, token);
+    });
+
+    socket.on('get-order', (id, token) => {
+        console.log(socket.id + " get-order");
+        Order.getOrderById(io, socket, id, token);
+    });
 
     /**
      * Index

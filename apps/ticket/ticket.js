@@ -92,8 +92,6 @@ var newTicket = (io, socket, ticket, token) => {
                     user.tickets.push(ticketObject)
                 }
                 
-
-                
                 user.save((err) => {
                     if (err) {
                         workflow.emit('error-handler', err)

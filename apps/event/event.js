@@ -111,8 +111,25 @@ var newEvent = (io, socket, event, token) => {
 
         lodash.forEach(tickets, (ticket) => {
             ticket._id = mongoose.Types.ObjectId();
+            ticket.createdBy = idUser
+            ticket.quantitiesSold = 0
+            ticket.quantitiesRemaining = ticket.quantity
             event.tickets.push(ticket);
-        });        
+        });
+
+        /**
+         * _id: { type: Schema.Types.ObjectId, ref: "Ticket" },
+        name: String,
+        description: String,
+        createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        dateCreated: Number,
+        dateModified: Number,
+        quantity: Number,
+        price: Number,
+        maxToOrder: Number,
+        quantitiesSold: Number,
+        quantitiesRemaining: Number
+         */
 
         newTicket(tickets, (result) => {
             if (result.error !== null) {
@@ -177,7 +194,7 @@ var getEvents = (io, socket, token) => {
                 if (events.length === 0) { socket.emit('get-events', [{}]); return }
 
                 var eventsModified = events
-                var checkEvent = 0, checkTicket = 0;       
+                var checkEvent = 0, checkTicket = 0;
                 events.forEach((event) => {
                     //get url photoCover
                     var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
@@ -189,7 +206,7 @@ var getEvents = (io, socket, token) => {
                     if (tickets || tickets.length > 0) {
                         lodash.forEach(tickets, (id) => {
                             getTicket(id, (result) => {
-                                
+
                                 if (result.error) {
                                     workflow.emit('error-handler', result.error)
                                 } else {
@@ -197,10 +214,10 @@ var getEvents = (io, socket, token) => {
                                         ticketsObject.push(result.ticket);
                                         checkTicket += 1
 
-                                        if (checkTicket === tickets.length) { 
-                                            event.tickets = ticketsObject        
+                                        if (checkTicket === tickets.length) {
+                                            event.tickets = ticketsObject
                                             if (checkEvent === events.length) {
-                                                console.log(event);        
+                                                console.log(event);
                                                 socket.emit('get-events', events);
                                             }
                                         }
@@ -216,6 +233,98 @@ var getEvents = (io, socket, token) => {
                 });
             }
         });
+    });
+
+    workflow.emit('validate-parameters');
+}
+var getEvent = (io, socket, idEvent, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!idEvent) {
+            workflow.emit('error-handler', 'Id of Event is required');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'Id of user not found');
+                } else {
+                    workflow.emit('get-event', idEvent);
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (err) => {
+        console.log(err);
+
+        socket.emit('get-event', [{ 'error': err }]);
+    });
+
+    workflow.on('get-event', (idEvent) => {
+        var checkSent = 0;
+        Event.findById(idEvent, (err, event) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                if (!event) { socket.emit('get-event', [{}]); return }
+
+                let idUser = event.createdBy, tickets = event.tickets;
+
+                if (idUser) {
+                    User.findById(idUser, (err, user) => {
+                        event.createdBy = user;
+                        checkSent += 1
+                        workflow.emit('response', { 'check': checkSent, 'event': event })
+                    });
+                }
+
+                var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+                event.photoCoverPath = path
+
+                if (tickets) {
+                    var ticketsFull = [], checkTicket = 0;
+                    lodash.forEach(tickets, (element) => {
+                        checkTicket += 1
+                        let id = element._id;
+                        if (id) {
+                            Ticket.findById(id, (err, ticket) => {
+                                if (ticket) {
+                                    ticketsFull.push(ticket);
+                                }
+                                
+                                if (checkTicket === tickets.length) {
+                                    event.tickets = ticketsFull
+                                    workflow.emit('response', { 'check': checkSent + 1, 'event': event })
+                                }
+                            })
+                        } else {
+                            workflow.emit('response', { 'check': checkSent + 1, 'event': event })
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+    workflow.on('response', (data) => {
+        if (data.check === 2) {
+            console.log(data.event);
+            
+            socket.emit('get-event', [data.event]);
+        }
     });
 
     workflow.emit('validate-parameters');
@@ -468,6 +577,7 @@ function getTicket(id, callback) {
 module.exports = {
     newEvent: newEvent,
     getEvents: getEvents,
+    getEvent: getEvent,
     uploadImageCover: uploadImageCover,
     router: router,
     like: like,
