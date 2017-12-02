@@ -10,15 +10,14 @@ var fs = require('fs');
 var Ticket = require('../models/index').ticket;
 var User = require('../models/index').user;
 var Order = require('../models/index').order;
-var OrderSession = require('../models/index').orderSession
 
 let pathQRCode = 'uploads/Images/Orders/'
-/**
- * tickets for user manager
- */
-var beginOrder = (io, socket, orderSession, token) => {
 
-    var idEvent = orderSession.idEvent, tickets = orderSession.tickets;
+
+
+var beginOrder = (io, socket, order, token) => {
+
+    var idEvent = order.idEvent, tickets = order.tickets;
 
     var workflow = new (require('events').EventEmitter)();
 
@@ -74,48 +73,77 @@ var beginOrder = (io, socket, orderSession, token) => {
     });
 
     workflow.on('begin-order', (idUser) => {
-        var session = new orderSession();
-        session.orderBy = idUser;
-        session.dateCreated = Date.now();
-        session.event = idEvent;
-        session.tickets = tickets;
 
-        session.save((err) => {
-            if (err) {
-                workflow.emit('error-handler', err);
-            } else {
-                let result = {
-                    "success": true
-                }
+        var order = new Order();
+        order.event = idEvent;
+        order.orderBy = idUser;
+        order.tickets = []
 
-                var check = 0;
-                lodash.forEach(tickets, (ticket) => {
-                    let id = ticket.id, quantity = ticket.quantity;
+        var check = 0;
+        lodash.forEach(tickets, (ticket) => {
+            let id = ticket.id, quantity = ticket.quantity;
 
-                    Ticket.findById(id, (err, element) => {
-                        if (err) {
-                            workflow.emit('error-handler', 'Ticket not found');
-                        } else {
-                            let oldQuantitiesRemaining = element.quantitiesRemaining;
-                            let oldQuantitiesSold = element.quantitiesSold;
+            if (!id) {
+                workflow.emit('error-handler', 'Ticket not found!');
+                return
+            }
 
-                            var newQuantitiesRemaining = oldQuantitiesRemaining - quantity;
-                            var newQuantitiesSold = oldQuantitiesSold + quantity;
+            if (!quantity) {
+                workflow.emit('error-handler', 'Quantity of Ticket can not empty');
+                return
+            }
 
-                            element.quantitiesRemaining = newQuantitiesRemaining
-                            element.quantitiesSold = newQuantitiesSold
-                            element.save((err) => {
-                                if (err) {
-                                    workflow.emit('error-handler', 'Update quantity of Ticket has been failed');
-                                } else {
-                                    check += 1;
-                                }
-                                if (check === tickets.lenght) {
-                                    workflow.emit('response', result);
-                                }
-                            });
-                        }
+            let parameters = {
+                '_id': mongoose.Types.ObjectId(id),
+                'quantity': quantity
+            }
+
+            order.tickets.push(parameters);
+
+            check += 1;
+
+            if (check === tickets.lenght) {
+                order.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                        return
+                    }
+
+                    let result = {
+                        "success": true
+                    }
+
+                    var check1 = 0;
+                    lodash.forEach(tickets, (ticket) => {
+                        let id = ticket.id, quantity = ticket.quantity;
+
+                        Ticket.findById(id, (err, element) => {
+                            if (err) {
+                                workflow.emit('error-handler', 'Ticket not found');
+                            } else {
+                                let oldQuantitiesRemaining = element.quantitiesRemaining;
+                                let oldQuantitiesSold = element.quantitiesSold;
+
+                                var newQuantitiesRemaining = oldQuantitiesRemaining - quantity;
+                                var newQuantitiesSold = oldQuantitiesSold + quantity;
+
+                                element.quantitiesRemaining = newQuantitiesRemaining
+                                element.quantitiesSold = newQuantitiesSold
+                                element.save((err) => {
+                                    if (err) {
+                                        workflow.emit('error-handler', 'Update quantity of Ticket has been failed');
+                                    } else {
+                                        check1 += 1;
+                                    }
+
+                                    if (check1 === tickets.lenght) {
+                                        workflow.emit('response', result);
+                                    }
+                                });
+                            }
+                        });
                     });
+
                 });
             }
         });
@@ -130,8 +158,22 @@ var beginOrder = (io, socket, orderSession, token) => {
 
 var order = (io, socket, order, token) => {
 
-    let event = order.event,
-        tickets = order.tickets,
+    /**
+orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
+ dateOrder: Number,
+ event: { type: Schema.Types.ObjectId, ref: 'Event' },
+ tickets: [{
+     _id: { type: Schema.Types.ObjectId, ref: 'Ticket' },
+     quantity: Number,
+     qrCodePath: String
+ }],
+ informations: {
+     fullName: String,
+     phoneNumber: Number
+ } 
+*/
+
+    let id = order._id,
         fullName = order.fullName,
         phoneNumber = order.phoneNumber;
 
@@ -139,13 +181,9 @@ var order = (io, socket, order, token) => {
 
     workflow.on('validate-parameters', () => {
 
-        if (!event) {
-            workflow.emit('error-handler', 'Event order is required!');
+        if (!id) {
+            workflow.emit('error-handler', 'Order not found');
             return
-        }
-
-        if (!tickets || tickets.lenght === 0) {
-            workflow.emit('error-handler', 'Ticket is required!');
         }
 
         if (!fullName) {
@@ -187,53 +225,27 @@ var order = (io, socket, order, token) => {
     });
 
     workflow.on('order', (idUser) => {
-        var order = new Order();
-        order.orderBy = idUser;
-        order.dateOrder = Date.now();
-        order.event = event;
-        order.tickets = []
 
         let informations = {
             'fullName': fullName,
             'phoneNumber': phoneNumber
         }
 
-        order.informations = informations
-
-        var check = 0;
-        lodash.forEach(tickets, (ticket) => {
-
-            let id = ticket.id, quantity = ticket.quantity;
-
-            if (!id) {
-                workflow.emit('error-handler', 'Ticket not found!');
+        Order.findById(id, (err, order) => {
+            if (err) {
+                workflow.emit('error-handler', err);
                 return
             }
 
-            if (!quantity) {
-                workflow.emit('error-handler', 'Quantity of Ticket can not empty');
-                return
-            }
+            order.informations = informations;
 
-            let parameters = {
-                '_id': mongoose.Types.ObjectId(id),
-                'quantity': quantity
-            }
-
-            order.tickets.push(parameters);
-
-            check += 1;
-
-            if (check === tickets.lenght) {
-                order.save((err) => {
-                    if (err) {
-                        workflow.emit('error-handler', err);
-                    } else {
-                        workflow.emit('response');
-                    }
-                });
-            }
-        })
+            order.save((err) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                }
+                workflow.emit('response');
+            });
+        });
 
     });
 
@@ -249,10 +261,9 @@ var order = (io, socket, order, token) => {
     workflow.emit('validate-parameters');
 }
 
-var endSessionOrder = (io, socket, orderSession, token) => {
-    var idEvent = orderSession.idEvent,
-        tickets = orderSession.tickets,
-        id = orderSession._id;
+var cancelOrder = (io, socket, order, token) => {
+    var tickets = order.tickets,
+        id = order._id;
 
     var workflow = new (require('events').EventEmitter)();
 
@@ -260,11 +271,6 @@ var endSessionOrder = (io, socket, orderSession, token) => {
 
         if (!id) {
             workflow.emit('error-handler', 'Id Order is required');
-            return
-        }
-
-        if (!idEvent) {
-            workflow.emit('error-handler', 'Event is required');
             return
         }
 
@@ -289,17 +295,17 @@ var endSessionOrder = (io, socket, orderSession, token) => {
                 if (!id) {
                     workflow.emit('error-handler', 'Authentication failed')
                 } else {
-                    workflow.emit('end-order-session', idUser)
+                    workflow.emit('cancel-order', idUser)
                 }
             }
         });
     });
 
     workflow.on('error-handler', (error) => {
-        socket.emit('begin-order', [{ "error": error }]);
+        socket.emit('cancel-order', [{ "error": error }]);
     });
 
-    workflow.on('end-order-session', (idUser) => {
+    workflow.on('cancel-order', (idUser) => {
         var check = 0;
         lodash.forEach(tickets, (ticket) => {
             var id = ticket.id, quantity = ticket.quantity;
@@ -337,7 +343,13 @@ var endSessionOrder = (io, socket, orderSession, token) => {
                     }
 
                     if (check === tickets.lenght) {
-                        workflow.emit('response', { 'success': true });
+                        Order.remove({ '_id': id }, (err) => {
+                            if (err) {
+                                workflow.emit('error-handler', err);
+                                return
+                            }
+                            workflow.emit('response', { 'success': true });
+                        });
                     }
                 });
             });
@@ -345,7 +357,7 @@ var endSessionOrder = (io, socket, orderSession, token) => {
     });
 
     workflow.on('response', (result) => {
-        socket.emit('end-order-session', [result])
+        socket.emit('cancel-order', [result])
     })
 
     workflow.emit('validate-parameters');
@@ -522,7 +534,7 @@ var generateQrCode = (idUser, idEvent, IdTicket, informations, response) => {
 module.exports = {
     beginOrder: beginOrder,
     order: order,
-    endSessionOrder: endSessionOrder,
+    cancelOrder: cancelOrder,
     getOrderById: getOrderById,
     getOrdersByToken: getOrdersByToken
 }

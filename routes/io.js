@@ -181,7 +181,7 @@ io.of('/').on('connection', (socket) => {
 
     socket.on('cancel-order', (orderSession, token) => {
         console.log(socket.id + " cancel-order");
-        Order.endSessionOrder(io, socket, orderSession, token);
+        Order.cancelOrder(io, socket, orderSession, token);
     });
 
     socket.on('get-orders', (token) => {
