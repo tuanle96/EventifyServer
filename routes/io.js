@@ -169,9 +169,9 @@ io.of('/').on('connection', (socket) => {
     *=====================================================
     */
 
-    socket.on('begin-order', (orderSession, token) => {
+    socket.on('begin-order', (order, token) => {
         console.log(socket.id + " order-Session");
-        Order.beginOrder(io, socket, orderSession, token);
+        Order.beginOrder(io, socket, order, token);
     });
 
     socket.on('order', (order, token) => {
@@ -179,9 +179,9 @@ io.of('/').on('connection', (socket) => {
         Order.order(io, socket, order, token);
     });
 
-    socket.on('cancel-order', (orderSession, token) => {
+    socket.on('cancel-order', (id, token) => {
         console.log(socket.id + " cancel-order");
-        Order.cancelOrder(io, socket, orderSession, token);
+        Order.cancelOrder(io, socket, id, token);
     });
 
     socket.on('get-orders', (token) => {

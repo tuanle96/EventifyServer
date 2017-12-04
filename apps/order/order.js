@@ -11,13 +11,12 @@ var Ticket = require('../models/index').ticket;
 var User = require('../models/index').user;
 var Order = require('../models/index').order;
 
-let pathQRCode = 'uploads/Images/Orders/'
-
-
+let pathQRCode = 'uploads/Images/Orders/';
 
 var beginOrder = (io, socket, order, token) => {
 
-    var idEvent = order.idEvent, tickets = order.tickets;
+    var idEvent = order.idEvent,
+        tickets = order.tickets;
 
     var workflow = new (require('events').EventEmitter)();
 
@@ -29,21 +28,8 @@ var beginOrder = (io, socket, order, token) => {
             return
         }
 
-        if (!tickets || tickets.lenght === 0) {
+        if (!tickets || tickets.length === 0) {
             workflow.emit('error-handler', 'Tickets are empty');
-        } else {
-            lodash.forEach(tickets, (ticket) => {
-                var id = ticket.id, quantity = ticket.quantity;
-                if (!id) {
-                    workflow.emit('error-handler', 'Ticket not found');
-                    return
-                }
-
-                if (!quantity) {
-                    workflow.emit('error-handler', 'Quantity of ticket is required');
-                    return
-                }
-            });
         }
 
         if (!token) {
@@ -59,7 +45,7 @@ var beginOrder = (io, socket, order, token) => {
                 workflow.emit('error-handler', err)
             } else {
                 var idUser = decoded.id
-                if (!id) {
+                if (!idUser) {
                     workflow.emit('error-handler', 'Authentication failed')
                 } else {
                     workflow.emit('begin-order', idUser)
@@ -81,7 +67,8 @@ var beginOrder = (io, socket, order, token) => {
 
         var check = 0;
         lodash.forEach(tickets, (ticket) => {
-            let id = ticket.id, quantity = ticket.quantity;
+            let id = ticket.idTicket,
+                quantity = ticket.quantity;
 
             if (!id) {
                 workflow.emit('error-handler', 'Ticket not found!');
@@ -93,85 +80,59 @@ var beginOrder = (io, socket, order, token) => {
                 return
             }
 
-            let parameters = {
-                '_id': mongoose.Types.ObjectId(id),
-                'quantity': quantity
-            }
+            Ticket.findById(id, (err, element) => {
 
-            order.tickets.push(parameters);
+                if (err) {
+                    workflow.emit('error-handler', 'Ticket not found');
+                    return
+                }
 
-            check += 1;
+                let parameters = {
+                    '_id': mongoose.Types.ObjectId(id),
+                    'quantity': quantity
+                }
 
-            if (check === tickets.lenght) {
-                order.save((err) => {
+                order.tickets.push(parameters);
+
+                let oldQuantitiesRemaining = element.quantitiesRemaining;
+                let oldQuantitiesSold = element.quantitiesSold;
+
+                var newQuantitiesRemaining = oldQuantitiesRemaining - quantity;
+                var newQuantitiesSold = oldQuantitiesSold + quantity;
+
+                element.quantitiesRemaining = newQuantitiesRemaining
+                element.quantitiesSold = newQuantitiesSold
+
+                element.save((err) => {
+                    check += 1;
                     if (err) {
-                        workflow.emit('error-handler', err);
+                        workflow.emit('error-handler', 'Update quantity of Ticket has been failed');
                         return
                     }
 
-                    let result = {
-                        "success": true
+                    if (check === tickets.length) {
+                        workflow.emit('response', order);
                     }
-
-                    var check1 = 0;
-                    lodash.forEach(tickets, (ticket) => {
-                        let id = ticket.id, quantity = ticket.quantity;
-
-                        Ticket.findById(id, (err, element) => {
-                            if (err) {
-                                workflow.emit('error-handler', 'Ticket not found');
-                            } else {
-                                let oldQuantitiesRemaining = element.quantitiesRemaining;
-                                let oldQuantitiesSold = element.quantitiesSold;
-
-                                var newQuantitiesRemaining = oldQuantitiesRemaining - quantity;
-                                var newQuantitiesSold = oldQuantitiesSold + quantity;
-
-                                element.quantitiesRemaining = newQuantitiesRemaining
-                                element.quantitiesSold = newQuantitiesSold
-                                element.save((err) => {
-                                    if (err) {
-                                        workflow.emit('error-handler', 'Update quantity of Ticket has been failed');
-                                    } else {
-                                        check1 += 1;
-                                    }
-
-                                    if (check1 === tickets.lenght) {
-                                        workflow.emit('response', result);
-                                    }
-                                });
-                            }
-                        });
-                    });
-
                 });
-            }
+            });
         });
     });
 
-    workflow.on('response', (result) => {
-        socket.emit('begin-order', [result])
+    workflow.on('response', (order) => {
+        order.save((err) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+                return
+            }
+
+            socket.emit('begin-order', [order])
+        });
     })
 
     workflow.emit('validate-parameters');
 }
 
 var order = (io, socket, order, token) => {
-
-    /**
-orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
- dateOrder: Number,
- event: { type: Schema.Types.ObjectId, ref: 'Event' },
- tickets: [{
-     _id: { type: Schema.Types.ObjectId, ref: 'Ticket' },
-     quantity: Number,
-     qrCodePath: String
- }],
- informations: {
-     fullName: String,
-     phoneNumber: Number
- } 
-*/
 
     let id = order._id,
         fullName = order.fullName,
@@ -204,7 +165,6 @@ orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
     });
 
     workflow.on('validate-token', (token) => {
-
         jwt.verify(token, key, (err, decoded) => {
             if (err) {
                 workflow.emit('error-handler', err);
@@ -217,7 +177,6 @@ orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
                 }
             }
         });
-
     });
 
     workflow.on('error-handler', (err) => {
@@ -243,10 +202,23 @@ orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
                 if (err) {
                     workflow.emit('error-handler', err);
                 }
-                workflow.emit('response');
+
+                //save to user
+                User.findById(idUser, (err, user) => {
+
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                        return
+                    }
+
+                    if (!user.orders || user.orders.length === 0) { user.orders = []; }
+                    console.log(order);
+                    
+                    user.orders.push(order)
+                    workflow.emit('response');
+                });                
             });
         });
-
     });
 
     workflow.on('response', () => {
@@ -261,9 +233,7 @@ orderBy: { type: Schema.Types.ObjectId, ref: 'User' },
     workflow.emit('validate-parameters');
 }
 
-var cancelOrder = (io, socket, order, token) => {
-    var tickets = order.tickets,
-        id = order._id;
+var cancelOrder = (io, socket, id, token) => {
 
     var workflow = new (require('events').EventEmitter)();
 
@@ -271,11 +241,6 @@ var cancelOrder = (io, socket, order, token) => {
 
         if (!id) {
             workflow.emit('error-handler', 'Id Order is required');
-            return
-        }
-
-        if (!tickets || tickets.lenght === 0) {
-            workflow.emit('error-handler', 'Tickets are empty');
             return
         }
 
@@ -306,58 +271,70 @@ var cancelOrder = (io, socket, order, token) => {
     });
 
     workflow.on('cancel-order', (idUser) => {
-        var check = 0;
-        lodash.forEach(tickets, (ticket) => {
-            var id = ticket.id, quantity = ticket.quantity;
-            if (!id) {
-                workflow.emit('error-handler', 'Ticket not found');
+        Order.findById(id, (err, order) => {
+            if (err) {
+                workflow.emit('error-handler', err);
                 return
             }
 
-            if (!quantity) {
-                workflow.emit('error-handler', 'Quantity of ticket is required');
-                return
-            }
+            let tickets = order.tickets
 
-            Ticket.findById(id, (err, element) => {
-                if (err) {
-                    workflow.emit('error-handler', err);
+            if (!tickets || tickets.length === 0) { workflow.emit('response'); return }
+
+            var check = 0;
+            lodash.forEach(tickets, (element) => {
+                let idTicket = element._id,
+                    quantity = element.quantity;
+                if (!idTicket) {
+                    workflow.emit('error-handler', 'Ticket not found');
                     return
                 }
 
-                let oldQuantitiesRemaining = element.quantitiesRemaining,
-                    oldQuantitiesSold = element.quantitiesSold;
+                if (!quantity) {
+                    workflow.emit('error-handler', 'Quantity of ticket is empty');
+                    return
+                }
 
-                let newQuantitiesRemaining = oldQuantitiesRemaining + quantity,
-                    newQuantitiesSold = oldQuantitiesSold - quantity;
-
-
-                element.quantitiesRemaining = newQuantitiesRemaining;
-                element.quantitiesSold = newQuantitiesSold;
-
-                element.save((err) => {
-                    check += 1;
+                Ticket.findById(idTicket, (err, ticket) => {
                     if (err) {
                         workflow.emit('error-handler', err);
                         return
                     }
 
-                    if (check === tickets.lenght) {
-                        Order.remove({ '_id': id }, (err) => {
-                            if (err) {
-                                workflow.emit('error-handler', err);
-                                return
-                            }
-                            workflow.emit('response', { 'success': true });
-                        });
-                    }
+                    let oldQuantitiesRemaining = ticket.quantitiesRemaining,
+                        oldQuantitiesSold = ticket.quantitiesSold
+
+                    let newQuantitiesRemaining = oldQuantitiesRemaining + quantity
+                    let newQuantitiesSold = oldQuantitiesSold - quantity
+
+                    ticket.quantitiesRemaining = newQuantitiesRemaining,
+                    ticket.quantitiesSold = newQuantitiesSold
+
+                    ticket.save((err) => {
+                        check += 1;
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                            return
+                        }
+
+                        if (check === tickets.length) {
+
+                            Order.remove({ '_id': id }, (err) => {
+                                if (err) {
+                                    workflow.emit('error-handler', err);
+                                    return
+                                }
+                                workflow.emit('response');
+                            });                            
+                        }
+                    });
                 });
-            });
+            })
         });
     });
 
-    workflow.on('response', (result) => {
-        socket.emit('cancel-order', [result])
+    workflow.on('response', () => {
+        socket.emit('cancel-order', [{}])
     })
 
     workflow.emit('validate-parameters');
@@ -395,7 +372,6 @@ var getOrdersByToken = (io, socket, token) => {
     });
 
     workflow.on('get-orders-by-user', (idUser) => {
-
         Order.find({ 'orderBy': idUser })
             .populate('User')
             .exec((err, orders) => {
@@ -408,7 +384,7 @@ var getOrdersByToken = (io, socket, token) => {
     });
 
     workflow.on('response', (orders) => {
-        if (orders.lenght === 0) {
+        if (orders.length === 0) {
             socket.emit('order', [{}])
         } else {
             socket.emit('order', orders)
@@ -461,9 +437,10 @@ var getOrderById = (io, socket, idOrder, token) => {
                 return
             }
 
-            let tickets = order.tickets, informations = order.informations;
+            let tickets = order.tickets,
+                informations = order.informations;
 
-            if (!tickets || tickets.lenght === 0) {
+            if (!tickets || tickets.length === 0) {
                 workflow.emit('error-handler', 'Ticket of Order is empty!');
                 return
             }
@@ -485,7 +462,7 @@ var getOrderById = (io, socket, idOrder, token) => {
 
                     ticket.qrCodePath = path;
 
-                    if (check === tickets.lenght) {
+                    if (check === tickets.length) {
                         workflow.emit('response', order)
                     }
                 })

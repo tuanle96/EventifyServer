@@ -217,7 +217,6 @@ var getEvents = (io, socket, token) => {
                                         if (checkTicket === tickets.length) {
                                             event.tickets = ticketsObject
                                             if (checkEvent === events.length) {
-                                                console.log(event);
                                                 socket.emit('get-events', events);
                                             }
                                         }
@@ -320,9 +319,7 @@ var getEvent = (io, socket, idEvent, token) => {
     });
 
     workflow.on('response', (data) => {
-        if (data.check === 2) {
-            console.log(data.event);
-            
+        if (data.check === 2) {            
             socket.emit('get-event', [data.event]);
         }
     });

@@ -12,6 +12,7 @@ module.exports = mongoose.model('User', new Schema({
     phoneNumber: String,
     photoPath: String,
     liked: [{ type: Schema.Types.ObjectId, ref: 'Like' }],
+    orders: [{ type: Schema.Types.ObjectId, ref: 'Order' }],
     tickets: [{
         name: String,
         maxToOrder: { type: Number, default: 10 },
