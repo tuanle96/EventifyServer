@@ -211,11 +211,17 @@ var order = (io, socket, order, token) => {
                         return
                     }
 
-                    if (!user.orders || user.orders.length === 0) { user.orders = []; }
-                    console.log(order);
+                    if (!user.orders || user.orders.length === 0) { user.orders = []; }                    
                     
-                    user.orders.push(order)
-                    workflow.emit('response');
+                    user.orders.push(order._id);
+
+                    user.save((err) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                            return
+                        }
+                        workflow.emit('response');
+                    });
                 });                
             });
         });
