@@ -10,6 +10,7 @@ var fs = require('fs');
 var Ticket = require('../models/index').ticket;
 var User = require('../models/index').user;
 var Order = require('../models/index').order;
+var Event = require('../models/index').event;
 
 let pathQRCode = 'uploads/Images/Orders/';
 
@@ -212,8 +213,8 @@ var order = (io, socket, order, token) => {
                         return
                     }
 
-                    if (!user.orders || user.orders.length === 0) { user.orders = []; }                    
-                    
+                    if (!user.orders || user.orders.length === 0) { user.orders = []; }
+
                     user.orders.push(order._id);
 
                     user.save((err) => {
@@ -223,7 +224,7 @@ var order = (io, socket, order, token) => {
                         }
                         workflow.emit('response');
                     });
-                });                
+                });
             });
         });
     });
@@ -315,7 +316,7 @@ var cancelOrder = (io, socket, id, token) => {
                     let newQuantitiesSold = oldQuantitiesSold - quantity
 
                     ticket.quantitiesRemaining = newQuantitiesRemaining,
-                    ticket.quantitiesSold = newQuantitiesSold
+                        ticket.quantitiesSold = newQuantitiesSold
 
                     ticket.save((err) => {
                         check += 1;
@@ -332,7 +333,7 @@ var cancelOrder = (io, socket, id, token) => {
                                     return
                                 }
                                 workflow.emit('response');
-                            });                            
+                            });
                         }
                     });
                 });
@@ -354,9 +355,9 @@ var getOrdersByToken = (io, socket, token) => {
     workflow.on('validate-parameters', () => {
         if (!token) {
             workflow.emit('error-handler', 'Token is required');
-        } else {
-            workflow.emit('validate-token', token);
+            return
         }
+        workflow.emit('validate-token', token);
     });
 
     workflow.on('validate-token', (token) => {
@@ -368,13 +369,14 @@ var getOrdersByToken = (io, socket, token) => {
                 if (!idUser) {
                     workflow.emit('error-handler', 'Id user not found')
                 } else {
-                    workflow.emit('order', idUser);
+                    workflow.emit('get-orders-by-user', idUser);
                 }
             }
         });
     });
 
     workflow.on('error-handler', (err) => {
+        console.log(err);
         socket.emit('get-orders-by-user', [{ 'error': err }])
     });
 
@@ -392,9 +394,24 @@ var getOrdersByToken = (io, socket, token) => {
 
     workflow.on('response', (orders) => {
         if (orders.length === 0) {
-            socket.emit('order', [{}])
+            socket.emit('get-orders', [{}])
         } else {
-            socket.emit('order', orders)
+            var check = 0
+            lodash.forEach(orders, (order) => {
+                Event.findById(order.event, (err, event) => {
+                    check += 1
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                        return
+                    }
+                    order.event = event
+
+                    if (check === orders.length) {
+                        //console.log(orders);
+                        socket.emit('get-orders', orders)
+                    }
+                });
+            });
         }
     });
 
@@ -445,7 +462,8 @@ var getOrderById = (io, socket, idOrder, token) => {
             }
 
             let tickets = order.tickets,
-                informations = order.informations;
+                informations = order.informations,
+                idEvent = order.event._id;
 
             if (!tickets || tickets.length === 0) {
                 workflow.emit('error-handler', 'Ticket of Order is empty!');
@@ -457,23 +475,38 @@ var getOrderById = (io, socket, idOrder, token) => {
                 return
             }
 
-            var check = 0
-            lodash.forEach(tickets, (ticket) => {
-                generateQrCode(idUser, idEvent, ticket._id, informations, (err, path) => {
-                    check += 1;
+            if (!idEvent) {
+                workflow.emit('error-handler', 'Event not found');
+                return
+            }
 
-                    if (err) {
-                        workflow.emit('error-handler', err);
-                        return
-                    }
+            Event.findById(idEvent, (err, event) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                    return
+                }
 
-                    ticket.qrCodePath = path;
+                order.event = event
 
-                    if (check === tickets.length) {
-                        workflow.emit('response', order)
-                    }
-                })
-            });
+                var check = 0
+                lodash.forEach(tickets, (ticket) => {
+                    generateQrCode(idUser, idEvent, ticket._id, informations, (err, path) => {
+                        check += 1;
+    
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                            return
+                        }
+    
+                        ticket.qrCodePath = path;
+    
+                        if (check === tickets.length) {
+                            console.log(order);
+                            workflow.emit('response', order)
+                        }
+                    });
+                });
+            });            
         });
     });
 
