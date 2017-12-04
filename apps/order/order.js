@@ -197,6 +197,7 @@ var order = (io, socket, order, token) => {
             }
 
             order.informations = informations;
+            order.dateOrder = Date.now();
 
             order.save((err) => {
                 if (err) {

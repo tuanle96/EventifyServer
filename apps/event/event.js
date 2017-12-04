@@ -117,20 +117,6 @@ var newEvent = (io, socket, event, token) => {
             event.tickets.push(ticket);
         });
 
-        /**
-         * _id: { type: Schema.Types.ObjectId, ref: "Ticket" },
-        name: String,
-        description: String,
-        createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-        dateCreated: Number,
-        dateModified: Number,
-        quantity: Number,
-        price: Number,
-        maxToOrder: Number,
-        quantitiesSold: Number,
-        quantitiesRemaining: Number
-         */
-
         newTicket(tickets, (result) => {
             if (result.error !== null) {
                 workflow.emit('error-handler', result.error);
@@ -268,25 +254,23 @@ var getEvent = (io, socket, idEvent, token) => {
 
     workflow.on('error-handler', (err) => {
         console.log(err);
-
         socket.emit('get-event', [{ 'error': err }]);
     });
 
     workflow.on('get-event', (idEvent) => {
-        var checkSent = 0;
         Event.findById(idEvent, (err, event) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
                 if (!event) { socket.emit('get-event', [{}]); return }
 
-                let idUser = event.createdBy, tickets = event.tickets;
+                let idUser = event.createdBy, 
+                    tickets = event.tickets;
 
                 if (idUser) {
                     User.findById(idUser, (err, user) => {
                         event.createdBy = user;
-                        checkSent += 1
-                        workflow.emit('response', { 'check': checkSent, 'event': event })
+                        workflow.emit('response', { 'event': event })
                     });
                 }
 
@@ -294,23 +278,25 @@ var getEvent = (io, socket, idEvent, token) => {
                 event.photoCoverPath = path
 
                 if (tickets) {
-                    var ticketsFull = [], checkTicket = 0;
-                    lodash.forEach(tickets, (element) => {
-                        checkTicket += 1
+                    var ticketsFull = [], 
+                        checkTicket = 0;
+                    lodash.forEach(tickets, (element) => {                        
                         let id = element._id;
                         if (id) {
                             Ticket.findById(id, (err, ticket) => {
+                                checkTicket += 1
+
                                 if (ticket) {
                                     ticketsFull.push(ticket);
                                 }
                                 
                                 if (checkTicket === tickets.length) {
                                     event.tickets = ticketsFull
-                                    workflow.emit('response', { 'check': checkSent + 1, 'event': event })
+                                    workflow.emit('response', { 'event': event })
                                 }
                             })
                         } else {
-                            workflow.emit('response', { 'check': checkSent + 1, 'event': event })
+                            workflow.emit('response', { 'event': event })
                         }
                     });
                 }
@@ -318,8 +304,11 @@ var getEvent = (io, socket, idEvent, token) => {
         });
     });
 
+    var check = 0
     workflow.on('response', (data) => {
-        if (data.check === 2) {            
+        check += 1
+        if (check === 2) {         
+            console.log(data.event);
             socket.emit('get-event', [data.event]);
         }
     });
