@@ -253,69 +253,25 @@ var getEvent = (io, socket, idEvent, token) => {
     });
 
     workflow.on('error-handler', (err) => {
-        console.log(err);
         socket.emit('get-event', [{ 'error': err }]);
     });
 
     workflow.on('get-event', (idEvent) => {
-        Event.findById(idEvent, (err, event) => {
+        getEventCallBack(socket, idEvent, (err, event) => {
             if (err) {
                 workflow.emit('error-handler', err);
-            } else {
-                if (!event) { socket.emit('get-event', [{}]); return }
-
-                let idUser = event.createdBy, 
-                    tickets = event.tickets;
-
-                if (idUser) {
-                    User.findById(idUser, (err, user) => {
-                        event.createdBy = user;
-                        workflow.emit('response', { 'event': event })
-                    });
-                }
-
-                var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
-                event.photoCoverPath = path
-
-                if (tickets) {
-                    var ticketsFull = [], 
-                        checkTicket = 0;
-                    lodash.forEach(tickets, (element) => {                        
-                        let id = element._id;
-                        if (id) {
-                            Ticket.findById(id, (err, ticket) => {
-                                checkTicket += 1
-
-                                if (ticket) {
-                                    ticketsFull.push(ticket);
-                                }
-                                
-                                if (checkTicket === tickets.length) {
-                                    event.tickets = ticketsFull
-                                    workflow.emit('response', { 'event': event })
-                                }
-                            })
-                        } else {
-                            workflow.emit('response', { 'event': event })
-                        }
-                    });
-                }
+                return
             }
-        });
+            workflow.emit('response', event);
+        })
     });
 
-    var check = 0
-    workflow.on('response', (data) => {
-        check += 1
-        if (check === 2) {         
-            console.log(data.event);
-            socket.emit('get-event', [data.event]);
-        }
+    workflow.on('response', (event) => {       
+        socket.emit('get-event', [event]);        
     });
 
     workflow.emit('validate-parameters');
 }
-
 var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
     var workflow = new (require('events').EventEmitter)();
@@ -375,7 +331,6 @@ var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
     workflow.emit('validate-parameters');
 }
-
 var getLikedEvents = (io, socket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -408,17 +363,36 @@ var getLikedEvents = (io, socket, token) => {
 
     workflow.on('get-liked-events', (idUser) => {
         User.findById(idUser, 'liked', (err, user) => {
-            if (user.liked) {
-                socket.emit('get-liked-events', user.liked)
-                //console.log(user._id)
-                //io.emit('get-liked-events', [user.liked, user._id])
+            let likes = user.liked;
+            if (!likes || likes.length === 0) {
+                workflow.emit('response', [{}]);
+                return
             }
+
+            var events = []
+
+            lodash.forEach(likes, (idEvent) => {
+                getEventCallBack(socket, idEvent, (err, event) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                        return
+                    }
+                    events.push(event);
+
+                    if (events.length === likes.length) {
+                        workflow.emit('response', events)
+                    }
+                })
+            });
         });
+    });
+
+    workflow.on('response', (events) => {
+        socket.emit('get-liked-events', events)
     });
 
     workflow.emit('validate-parameters');
 }
-
 var like = (io, socket, idEvent, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -444,7 +418,6 @@ var like = (io, socket, idEvent, token) => {
                 if (!idUser) {
                     workflow.emit('error-handler', 'Id of User is required');
                 } else {
-                    //console.log(idEvent + " | " + idUser)
                     workflow.emit('like-event', (idUser));
                 }
             }
@@ -479,7 +452,6 @@ var like = (io, socket, idEvent, token) => {
     });
     workflow.emit('validate-parameters');
 }
-
 var unlike = (io, socket, idEvent, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -544,7 +516,6 @@ function newTicket(tickets, callback) {
             "error": err,
             "response": ticket
         }
-        console.log(result);
 
         return callback(result)
     });
@@ -558,6 +529,57 @@ function getTicket(id, callback) {
         }
         return callback(result)
     })
+}
+
+function getEventCallBack(socket, idEvent, callback) {
+    Event.findById(idEvent, (err, event) => {
+        if (err) {
+            return callback(err, null);
+        } else {
+            if (!event) { return callback('Event not found', null); }
+
+            let idUser = event.createdBy,
+                tickets = event.tickets,
+                path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath;
+
+            event.photoCoverPath = path
+
+            if (idUser) {
+                User.findById(idUser, (err, user) => {
+                    if (err) { return callback(err, null); }
+                    event.createdBy = user;
+
+                    if (tickets) {
+                        var ticketsFull = [],
+                            checkTicket = 0;
+                        lodash.forEach(tickets, (element) => {
+                            let id = element._id;
+                            if (id) {
+                                Ticket.findById(id, (err, ticket) => {
+                                    checkTicket += 1
+        
+                                    if (ticket) {
+                                        ticketsFull.push(ticket);
+                                    }
+        
+                                    if (checkTicket === tickets.length) {
+                                        event.tickets = ticketsFull
+                                        return callback(null, event);
+                                    }
+                                })
+                            } else {
+                                return callback('Id ticket not found', null);
+                            }
+                        });
+                    } else {
+                        return callback('Ticket not found', null);
+                    }
+                });
+            } else {
+                return callback('User not found', null);
+            }
+        }
+    });
 }
 
 module.exports = {
