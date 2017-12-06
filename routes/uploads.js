@@ -1,18 +1,22 @@
 var express = require('express');
 var router = express.Router();
 var fs = require('fs');
+var QRCode = require('qrcode');
 
 /* GET home page. */
 router.get('/', (req, res, next) => {
     res.render('index', { title: 'This is uploads page' });
 });
 
+//./uploads/Images/Events/Cover/5a23f58b21ce8135f83ab29b1512306103.jpg
+
 router.get('/Images/Events/Cover/:path', (req, res) => {
     var path = req.params.path;
-    let originUrl = '.' + req.client.parser.incoming.originalUrl  
+    let originUrl = '.' + req.client.parser.incoming.originalUrl
+    console.log(path);
     if (fs.existsSync(originUrl)) {
 
-        res.download(originUrl, path , (err) => {
+        res.download(originUrl, path, (err) => {
             if (err) {
                 return res.json(err);
             }
@@ -23,13 +27,53 @@ router.get('/Images/Events/Cover/:path', (req, res) => {
     }
 });
 
-// var img = fs.readFileSync('./public/images/img.gif');
+router.get('/Images/Orders/:path', (req, res) => {
+    var path = req.params.path;
+    console.log(path);
+    let originUrl = '.' + req.client.parser.incoming.originalUrl
+    console.log(originUrl);
+    if (fs.existsSync(originUrl)) {
+        res.download(originUrl, path, (err) => {
+            if (err) {
+                return res.json(err);
+            }
+        });
+    } else {
 
-//   if (para == '{id}') {
-//     res.writeHead(200, {
-//       'Content-Type': 'image/gif'
-//     });
-//     res.end(img, 'binary');
+        //remove .png file extension
+        let code = path.substring(0, path.length - 4);
+        console.log(code);
+
+        generateQrCode('uploads/Images/Orders/' + path, code, (err) => {
+            if (err) {
+                return res.json(err);
+            }
+
+            res.download(originUrl, path, (err) => {
+                if (err) {
+                    return res.json(err);
+                }
+            })
+        })
+    }
+});
+
+var generateQrCode = (path, code, callback) => {
+    console.log(path);
+    QRCode.toFile(path, code, {
+        color: {
+            dark: '#493f3f',  // Blue dots
+            light: '#0000' // Transparent background
+        }
+    }, (err) => {
+        if (err) {
+            return callback(err);
+        } else {
+            return callback(null);
+        }
+    });
+
+}
 
 module.exports = router;
 

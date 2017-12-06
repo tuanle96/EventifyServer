@@ -4,7 +4,6 @@ var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
 var lodash = require('lodash');
 var mongoose = require('mongoose');
-var QRCode = require('qrcode');
 var fs = require('fs');
 
 var Ticket = require('../models/index').ticket;
@@ -62,44 +61,43 @@ var beginOrder = (io, socket, order, token) => {
     workflow.on('begin-order', (idUser) => {
 
         var order = new Order();
+        order._id = mongoose.Types.ObjectId()
         order.event = idEvent;
         order.orderBy = idUser;
+        order.completed = false;
         order.tickets = []
 
-        var check = 0;
+        var check = 0, count = 1
         lodash.forEach(tickets, (ticket) => {
-            let id = ticket.idTicket,
-                quantity = ticket.quantity;
+            let idTicket = ticket.id;
 
-            if (!id) {
+            if (!idTicket) {
                 workflow.emit('error-handler', 'Ticket not found!');
                 return
             }
 
-            if (!quantity) {
-                workflow.emit('error-handler', 'Quantity of Ticket can not empty');
-                return
-            }
-
-            Ticket.findById(id, (err, element) => {
+            Ticket.findById(idTicket, (err, element) => {
 
                 if (err) {
                     workflow.emit('error-handler', 'Ticket not found');
                     return
                 }
 
-                let parameters = {
-                    '_id': mongoose.Types.ObjectId(id),
-                    'quantity': quantity
+                
+                let ticket = {
+                    '_id': mongoose.Types.ObjectId(idTicket),
+                    'QRCode': pathQRCode + order._id + '.' + idTicket + '.' + count + '.png'
                 }
 
-                order.tickets.push(parameters);
+                count += 1;
+
+                order.tickets.push(ticket);
 
                 let oldQuantitiesRemaining = element.quantitiesRemaining;
                 let oldQuantitiesSold = element.quantitiesSold;
 
-                var newQuantitiesRemaining = oldQuantitiesRemaining - quantity;
-                var newQuantitiesSold = oldQuantitiesSold + quantity;
+                var newQuantitiesRemaining = oldQuantitiesRemaining - 1;
+                var newQuantitiesSold = oldQuantitiesSold + 1;
 
                 element.quantitiesRemaining = newQuantitiesRemaining
                 element.quantitiesSold = newQuantitiesSold
@@ -170,7 +168,7 @@ var order = (io, socket, order, token) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                var idUser = decoded.id
+                const idUser = decoded.id
                 if (!idUser) {
                     workflow.emit('error-handler', 'Id user not found')
                 } else {
@@ -199,6 +197,7 @@ var order = (io, socket, order, token) => {
 
             order.informations = informations;
             order.dateOrder = Date.now();
+            order.completed = true;
 
             order.save((err) => {
                 if (err) {
@@ -207,7 +206,6 @@ var order = (io, socket, order, token) => {
 
                 //save to user
                 User.findById(idUser, (err, user) => {
-
                     if (err) {
                         workflow.emit('error-handler', err);
                         return
@@ -291,15 +289,9 @@ var cancelOrder = (io, socket, id, token) => {
 
             var check = 0;
             lodash.forEach(tickets, (element) => {
-                let idTicket = element._id,
-                    quantity = element.quantity;
+                let idTicket = element._id;
                 if (!idTicket) {
                     workflow.emit('error-handler', 'Ticket not found');
-                    return
-                }
-
-                if (!quantity) {
-                    workflow.emit('error-handler', 'Quantity of ticket is empty');
                     return
                 }
 
@@ -312,11 +304,11 @@ var cancelOrder = (io, socket, id, token) => {
                     let oldQuantitiesRemaining = ticket.quantitiesRemaining,
                         oldQuantitiesSold = ticket.quantitiesSold
 
-                    let newQuantitiesRemaining = oldQuantitiesRemaining + quantity
-                    let newQuantitiesSold = oldQuantitiesSold - quantity
+                    let newQuantitiesRemaining = oldQuantitiesRemaining + 1
+                    let newQuantitiesSold = oldQuantitiesSold - 1
 
-                    ticket.quantitiesRemaining = newQuantitiesRemaining,
-                        ticket.quantitiesSold = newQuantitiesSold
+                    ticket.quantitiesRemaining = newQuantitiesRemaining;
+                    ticket.quantitiesSold = newQuantitiesSold;
 
                     ticket.save((err) => {
                         check += 1;
@@ -369,24 +361,47 @@ var getOrdersByToken = (io, socket, token) => {
                 if (!idUser) {
                     workflow.emit('error-handler', 'Id user not found')
                 } else {
-                    workflow.emit('get-orders-by-user', idUser);
+                    User.findById(idUser, (err, user) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                            return
+                        }
+
+                        workflow.emit('get-orders-by-user', user);
+                    })
+                    
                 }
             }
         });
     });
 
     workflow.on('error-handler', (err) => {
-        console.log(err);
         socket.emit('get-orders-by-user', [{ 'error': err }])
     });
 
-    workflow.on('get-orders-by-user', (idUser) => {
-        Order.find({ 'orderBy': idUser })
+    workflow.on('get-orders-by-user', (user) => {
+        Order.find({ 'orderBy': user._id, 'completed': true })
             .populate('User')
             .exec((err, orders) => {
                 if (err) {
                     workflow.emit('error-handler', err);
                 } else {
+                    //loop orders
+                    lodash.forEach(orders, (order) => {
+                        //lop tickets
+                        var tickets = order.tickets;
+                        order.orderBy = user;
+                        if (tickets) {
+                            lodash.forEach(tickets, (ticket) => {
+                                let qrCode = ticket.QRCode;
+                                let qrCodePath = 'http://' + socket.handshake.headers.host + '/' + qrCode;
+                                ticket.QRCode = qrCodePath
+                            });
+                        }
+                    });
+
+
+
                     workflow.emit('response', orders);
                 }
             });
@@ -399,17 +414,27 @@ var getOrdersByToken = (io, socket, token) => {
             var check = 0
             lodash.forEach(orders, (order) => {
                 Event.findById(order.event, (err, event) => {
-                    check += 1
                     if (err) {
                         workflow.emit('error-handler', err);
                         return
-                    }
-                    order.event = event
+                    }                    
 
-                    if (check === orders.length) {
-                        //console.log(orders);
-                        socket.emit('get-orders', orders)
-                    }
+                    getUser(event.createdBy, (err, user) => {
+                        check += 1
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                            return
+                        }   
+
+                        event.createdBy = user
+                        order.event = event
+
+                        if (check === orders.length) {
+                            //console.log(orders);
+                            socket.emit('get-orders', orders);
+                        }
+                    })
+                                      
                 });
             });
         }
@@ -418,6 +443,7 @@ var getOrdersByToken = (io, socket, token) => {
     workflow.emit('validate-parameters');
 }
 
+//not completed
 var getOrderById = (io, socket, idOrder, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -490,23 +516,9 @@ var getOrderById = (io, socket, idOrder, token) => {
 
                 var check = 0
                 lodash.forEach(tickets, (ticket) => {
-                    generateQrCode(idUser, idEvent, ticket._id, informations, (err, path) => {
-                        check += 1;
-    
-                        if (err) {
-                            workflow.emit('error-handler', err);
-                            return
-                        }
-    
-                        ticket.qrCodePath = path;
-    
-                        if (check === tickets.length) {
-                            console.log(order);
-                            workflow.emit('response', order)
-                        }
-                    });
+
                 });
-            });            
+            });
         });
     });
 
@@ -517,36 +529,18 @@ var getOrderById = (io, socket, idOrder, token) => {
     workflow.emit('validate-parameters');
 }
 
-var generateQrCode = (idUser, idEvent, IdTicket, informations, response) => {
+var getUser = (idUser, callback) => {
 
-    if (!fs.existsSync(pathQRCode)) {
-        workflow.emit('error-handler', 'Path of image order not found');
-    } else {
-        let nameOfQrcode = idOrder + IdTicket;
-        let path = pathImageCover + nameOfQrcode;
-
-        let text = {
-            'idUser': idUser,
-            'idEvent': idEvent,
-            'idTicket': idTicket,
-            'informations': informations
-        }
-
-        QRCode.toFile(path, text, {
-            color: {
-                dark: '#00F',  // Blue dots
-                light: '#0000' // Transparent background
-            }
-        }, (err) => {
-
-            if (err) {
-                return response(err, null);
-            } else {
-                return response(null, pathQRCode + path);
-            }
-        });
+    if (!idUser) {
+        return callback('Id user not found', null);
     }
+
+    User.findById(idUser, (err, user) => {
+        return callback(err, user);
+    })
 }
+
+
 
 module.exports = {
     beginOrder: beginOrder,
