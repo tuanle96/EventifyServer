@@ -59,16 +59,6 @@ var newTicket = (io, socket, ticket, token) => {
     });
 
     workflow.on('new-ticket', (idUser) => {
-
-        /**
-         * _id: { type: String, unique: true },
-        name: String,
-        maxToOrder: { type: Number, default: 10 },
-        quantity: Number,
-        price: Number,
-        description: String
-         */
-
         var ticketObject = {
             "name": name,
             "quantity": quantity,
@@ -106,37 +96,7 @@ var newTicket = (io, socket, ticket, token) => {
                     }
                 });
             }
-        })
-
-        // var ticketObject = new Ticket();
-        // ticketObject.name = name
-        // ticketObject.quantitiesToSell = quantitiesToSell
-        // ticketObject.dateCreated = Date.now()
-        // ticketObject.createdBy = idUser
-
-        // if (descriptions) { ticketObject.descriptions = descriptions }
-        // if (maxQuantitiesToOrder) { ticketObject.maxQuantitiesToOrder = maxQuantitiesToOrder }
-        // if (price) { ticketObject.price = price }
-        // if (quantitiesSold) { ticketObject.quantitiesSold = quantitiesSold }
-        // if (quantitiesRemaining) { ticketObject.quantitiesRemaining = quantitiesRemaining }
-
-        // ticketObject.save((err) => {
-        //     if (err) {
-        //         workflow.emit('error-handler', err);
-        //     } else {
-        //         socket.emit('new-ticket', [ticketObject]);
-
-        //         Ticket.find({ 'createdBy': idUser })
-        //             .populate('User')
-        //             .exec((err, tickets) => {
-        //                 if (tickets.length == 0) {
-        //                     socket.emit('get-tickets', [{}]);
-        //                 } else {
-        //                     socket.emit('get-tickets', tickets);
-        //                 }
-        //             });
-        //     }
-        // });
+        });
     });
 
     workflow.emit('validate-parameters');
@@ -187,20 +147,6 @@ var getTickets = (io, socket, token) => {
                 }
             }
         });
-
-        // Ticket.find({ 'createdBy': idUser })
-        //     .populate('User')
-        //     .exec((err, tickets) => {
-        //         if (err) {
-        //             workflow.emit('error-handler', err);
-        //         } else {
-        //             if (tickets.length == 0) {
-        //                 socket.emit('get-tickets', [{}]);
-        //             } else {
-        //                 socket.emit('get-tickets', tickets);
-        //             }
-        //         }
-        //     });
     });
 
     workflow.emit('validate-token', token);
@@ -277,20 +223,6 @@ var deleteTicket = (io, socket, idTicket, token) => {
                 }
             }
         });
-
-        // Ticket.deleteOne({ '_id': idTicket }, (err, result) => {
-        //     if (err) {
-        //         workflow.emit('error-handler', err);
-        //     } else {
-
-        //         var json = {
-        //             "rowsDeleted": result.result.n,
-        //             "success": result.result.ok
-        //         }
-        //         socket.emit('delete-ticket', [json])
-        //         getTickets(io, socket, token)
-        //     }
-        // })
     });
 
     workflow.emit('validate-parameters');
@@ -381,30 +313,6 @@ var editTicket = (io, socket, ticket, token) => {
                 }
             }
         });
-
-        // Ticket.findById(idTicket, (err, ticket) => {
-        //     if (err) {
-        //         workflow.emit('error-handler', err)
-        //     } else {
-        //         ticket.name = name
-        //         ticket.quantitiesToSell = quantitiesToSell
-        //         ticket.dateModified = Date.now()
-
-        //         if (descriptions) { ticket.descriptions = descriptions } else { ticket.descriptions = "" }
-        //         if (maxQuantitiesToOrder) { ticket.maxQuantitiesToOrder = maxQuantitiesToOrder } else { ticket.maxQuantitiesToOrder = "" }
-        //         if (price) { ticket.price = price } else { ticket.price = "price" }
-        //         if (quantitiesSold) { ticket.quantitiesSold = quantitiesSold } else { ticket.quantitiesSold = "" }
-        //         if (quantitiesRemaining) { ticket.quantitiesRemaining = quantitiesRemaining } else { ticket.quantitiesRemaining = "" }
-
-        //         ticket.save((err) => {
-        //             if (err) {
-        //                 workflow.emit('error-handler', err);
-        //             } else {
-        //                 socket.emit('edit-ticket', [ticket]);
-        //             }
-        //         });
-        //     }
-        // });
     });
 
     workflow.emit('validate-parameters');

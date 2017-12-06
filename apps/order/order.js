@@ -430,7 +430,6 @@ var getOrdersByToken = (io, socket, token) => {
                         order.event = event
 
                         if (check === orders.length) {
-                            //console.log(orders);
                             socket.emit('get-orders', orders);
                         }
                     })
