@@ -13,15 +13,12 @@ router.get('/', (req, res, next) => {
 router.get('/Images/Events/Cover/:path', (req, res) => {
     var path = req.params.path;
     let originUrl = '.' + req.client.parser.incoming.originalUrl
-    console.log(path);
-    if (fs.existsSync(originUrl)) {
-
-        res.download(originUrl, path, (err) => {
-            if (err) {
-                return res.json(err);
-            }
+    if (fs.existsSync(originUrl)) {         
+        res.download(originUrl, path, (err) => {  
+            // if (err) {
+            //     return res.json(err);
+            // }
         });
-
     } else {
         res.render('index', { title: path });
     }
