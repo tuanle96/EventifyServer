@@ -131,7 +131,7 @@ var newEvent = (io, socket, event, token) => {
         });
     });
 
-    
+
     workflow.on('response', (event) => {
         let name = event.name + " " + (index + 1)
         event.name = name
@@ -280,38 +280,37 @@ var getEvent = (io, socket, idEvent, token) => {
 
     workflow.emit('validate-parameters');
 }
-
 var getMoreEvents = (io, socket, from, token) => {
     var workflow = new (require('events').EventEmitter)();
-    
-        workflow.on('validate-parameters', () => {
-            if (!token) {
-                workflow.emit('error-handler', 'Token is required')
+
+    workflow.on('validate-parameters', () => {
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
             } else {
-                workflow.emit('validate-token', token)
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'Id of user not found');
+                } else {
+                    workflow.emit('get-more-events');
+                }
             }
         });
-    
-        workflow.on('validate-token', (token) => {
-            jwt.verify(token, key, (err, decoded) => {
-                if (err) {
-                    workflow.emit('error-handler', err);
-                } else {
-                    if (!decoded.id) {
-                        workflow.emit('error-handler', 'Id of user not found');
-                    } else {
-                        workflow.emit('get-events');
-                    }
-                }
-            });
-        });
-    
-        workflow.on('error-handler', (err) => {
-            socket.emit('get-events', [{ 'error': err }]);
-        });
-    
-        workflow.on('get-events', () => {
-            Event.find({})
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('get-more-events', [{ 'error': err }]);
+    });
+
+    workflow.on('get-more-events', () => {
+        Event.find({})
             .sort('-dateCreated')
             .skip(from)
             .limit(5)
@@ -319,11 +318,11 @@ var getMoreEvents = (io, socket, from, token) => {
                 if (err) {
                     workflow.emit('error-handler', err);
                 } else {
-    
-                    if (!events) { socket.emit('get-events', [{}]); return }
-    
+
+                    if (!events) { socket.emit('get-more-events', [{}]); return }
+
                     if (events.length === 0) { socket.emit('get-more-events', [{}]); return }
-    
+
                     var eventsModified = events
                     var checkEvent = 0, checkTicket = 0;
                     events.forEach((event) => {
@@ -337,14 +336,14 @@ var getMoreEvents = (io, socket, from, token) => {
                         if (tickets || tickets.length > 0) {
                             lodash.forEach(tickets, (id) => {
                                 getTicket(id, (result) => {
-    
+
                                     if (result.error) {
                                         workflow.emit('error-handler', result.error)
                                     } else {
                                         if (result.ticket) {
                                             ticketsObject.push(result.ticket);
                                             checkTicket += 1
-    
+
                                             if (checkTicket === tickets.length) {
                                                 event.tickets = ticketsObject
                                                 if (checkEvent === events.length) {
@@ -363,10 +362,183 @@ var getMoreEvents = (io, socket, from, token) => {
                     });
                 }
             })
+    });
+
+    workflow.emit('validate-parameters');
+}
+var getPreviousEvents = (io, socket, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'Id of user not found');
+                } else {
+                    workflow.emit('get-previous-events');
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('get-events', [{ 'error': err }]);
+    });
+
+    workflow.on('get-previous-events', () => {
+        Event.find({ 'dateCreated': { $gt: - Date.now() } })
+            .limit(15)
+            .sort('-dateCreated')
+            .exec((err, events) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                } else {
+
+                    if (!events) { socket.emit('get-previous-events', [{}]); return }
+
+                    if (events.length === 0) { socket.emit('get-previous-events', [{}]); return }
+
+                    var eventsModified = events
+                    var checkEvent = 0, checkTicket = 0;
+                    events.forEach((event) => {
+                        //get url photoCover
+                        var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+                        event.photoCoverPath = path
+                        var ticketsObject = []
+                        checkEvent += 1
+                        //get tickets
+                        let tickets = event.tickets
+                        if (tickets || tickets.length > 0) {
+                            lodash.forEach(tickets, (id) => {
+                                getTicket(id, (result) => {
+
+                                    if (result.error) {
+                                        workflow.emit('error-handler', result.error)
+                                    } else {
+                                        if (result.ticket) {
+                                            ticketsObject.push(result.ticket);
+                                            checkTicket += 1
+
+                                            if (checkTicket === tickets.length) {
+                                                event.tickets = ticketsObject
+                                                if (checkEvent === events.length) {
+                                                    socket.emit('get-previous-events', events);
+                                                }
+                                            }
+                                        } else {
+                                            workflow.emit('error-handler', 'Ticket of Event not found');
+                                        }
+                                    }
+                                });
+                            })
+                        } else {
+                            check += 1
+                        }
+                    });
+                }
+            });
+    });
+
+    workflow.emit('validate-parameters');
+}
+
+var getMorePreviousEvents = (io, socket, from, token) => {
+    var workflow = new (require('events').EventEmitter)();
+    
+        workflow.on('validate-parameters', () => {
+            if (!token) {
+                workflow.emit('error-handler', 'Token is required')
+            } else {
+                workflow.emit('validate-token', token)
+            }
+        });
+    
+        workflow.on('validate-token', (token) => {
+            jwt.verify(token, key, (err, decoded) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                } else {
+                    if (!decoded.id) {
+                        workflow.emit('error-handler', 'Id of user not found');
+                    } else {
+                        workflow.emit('get-more-previous-events');
+                    }
+                }
+            });
+        });
+    
+        workflow.on('error-handler', (err) => {
+            socket.emit('get-more-previous-events', [{ 'error': err }]);
+        });
+    
+        workflow.on('get-more-previous-events', () => {
+            Event.find({ 'dateCreated': { $gt: Date.now() } })
+                .sort('-dateCreated')
+                .skip(from)
+                .limit(5)
+                .exec((err, events) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                    } else {
+    
+                        if (!events) { socket.emit('get-more-previous-events', [{}]); return }
+    
+                        if (events.length === 0) { socket.emit('get-more-previous-events', [{}]); return }
+    
+                        var eventsModified = events
+                        var checkEvent = 0, checkTicket = 0;
+                        events.forEach((event) => {
+                            //get url photoCover
+                            var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+                            event.photoCoverPath = path
+                            var ticketsObject = []
+                            checkEvent += 1
+                            //get tickets
+                            let tickets = event.tickets
+                            if (tickets || tickets.length > 0) {
+                                lodash.forEach(tickets, (id) => {
+                                    getTicket(id, (result) => {
+    
+                                        if (result.error) {
+                                            workflow.emit('error-handler', result.error)
+                                        } else {
+                                            if (result.ticket) {
+                                                ticketsObject.push(result.ticket);
+                                                checkTicket += 1
+    
+                                                if (checkTicket === tickets.length) {
+                                                    event.tickets = ticketsObject
+                                                    if (checkEvent === events.length) {
+                                                        socket.emit('get-more-previous-events', events);
+                                                    }
+                                                }
+                                            } else {
+                                                workflow.emit('error-handler', 'Ticket of Event not found');
+                                            }
+                                        }
+                                    });
+                                })
+                            } else {
+                                check += 1
+                            }
+                        });
+                    }
+                })
         });
     
         workflow.emit('validate-parameters');
 }
+
 var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
     var workflow = new (require('events').EventEmitter)();
@@ -678,6 +850,8 @@ module.exports = {
     newEvent: newEvent,
     getEvents: getEvents,
     getMoreEvents: getMoreEvents,
+    getPreviousEvents: getPreviousEvents,
+    getMorePreviousEvents: getMorePreviousEvents,
     getEvent: getEvent,
     uploadImageCover: uploadImageCover,
     router: router,

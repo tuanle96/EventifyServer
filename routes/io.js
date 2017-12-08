@@ -108,10 +108,21 @@ io.of('/').on('connection', (socket) => {
         Event.getEvents(io, socket, token)
     });
 
+    socket.on('get-previous-events', (token) => {
+        console.log(socket.id + " get-previous-events")
+        Event.getPreviousEvents(io, socket, token)
+    });
+
     socket.on('get-more-events', (from, token) => {
         console.log(socket.id + " get-more-events")
         Event.getMoreEvents(io, socket, from, token)
     });
+
+    socket.on('get-more-previous-events', (from, token) => {
+        console.log(socket.id + " get-more-previous-events")
+        Event.getMorePreviousEvents(io, socket, from, token)
+    });
+
 
     socket.on('get-event', (idEvent, token) => {
         console.log(socket.id + " get-event")
