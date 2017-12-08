@@ -20,7 +20,7 @@ var newEvent = (io, socket, event, token) => {
     var name = event.name,
         descriptions = event.descriptions,
         address = event.address,
-        dateCreated = Date.now(),
+        dateCreated = Date.now() / 1000,
         photoCoverPath = event.photoCoverPath,
         types = event.types,
         createdBy = event.createdBy,
@@ -392,13 +392,12 @@ var getPreviousEvents = (io, socket, token) => {
     });
 
     workflow.on('error-handler', (err) => {
-        socket.emit('get-events', [{ 'error': err }]);
+        socket.emit('get-previous-events', [{ 'error': err }]);
     });
 
     workflow.on('get-previous-events', () => {
-        Event.find({ 'dateCreated': { $gt: - Date.now() } })
+        Event.find({ 'timeEnd': { $lt: Date.now() / 1000 } })
             .limit(15)
-            .sort('-dateCreated')
             .exec((err, events) => {
                 if (err) {
                     workflow.emit('error-handler', err);
@@ -482,8 +481,7 @@ var getMorePreviousEvents = (io, socket, from, token) => {
         });
     
         workflow.on('get-more-previous-events', () => {
-            Event.find({ 'dateCreated': { $gt: Date.now() } })
-                .sort('-dateCreated')
+            Event.find({ 'timeEnd': { $lt: Date.now() / 1000 } })
                 .skip(from)
                 .limit(5)
                 .exec((err, events) => {

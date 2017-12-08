@@ -62,7 +62,7 @@ var newTicket = (io, socket, ticket, token) => {
         var ticketObject = {
             "name": name,
             "quantity": quantity,
-            "dateCreated": Date.now()
+            "dateCreated": Date.now() / 1000
         }
 
         if (description) { ticketObject.description = description }
@@ -288,7 +288,7 @@ var editTicket = (io, socket, ticket, token) => {
                             var ticket = tickets[index];
                             ticket.name = name;
                             ticket.quantity = quantity;
-                            ticket.dateModified = Date.now();
+                            ticket.dateModified = Date.now() / 1000;
 
                             if (description) { ticket.description = description }
                             if (maxToOrder) { ticket.maxToOrder = maxToOrder } else { ticket.maxToOrder = 10 }

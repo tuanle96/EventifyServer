@@ -1,4 +1,3 @@
-
 'use strict';
 
 var Type = require('../models/index').type;

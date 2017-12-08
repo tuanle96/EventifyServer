@@ -196,7 +196,7 @@ var order = (io, socket, order, token) => {
             }
 
             order.informations = informations;
-            order.dateOrder = Date.now();
+            order.dateOrder = Date.now() / 1000;
             order.completed = true;
 
             order.save((err) => {
