@@ -399,9 +399,6 @@ var getOrdersByToken = (io, socket, token) => {
                             });
                         }
                     });
-
-
-
                     workflow.emit('response', orders);
                 }
             });
@@ -538,8 +535,6 @@ var getUser = (idUser, callback) => {
         return callback(err, user);
     })
 }
-
-
 
 module.exports = {
     beginOrder: beginOrder,

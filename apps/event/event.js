@@ -14,7 +14,7 @@ var fs = require('fs');
 var request = require('request');
 var lodash = require('lodash');
 let pathImageCover = 'uploads/Images/Events/Cover/'
-
+var index = 0
 var newEvent = (io, socket, event, token) => {
 
     var name = event.name,
@@ -123,17 +123,25 @@ var newEvent = (io, socket, event, token) => {
             } else {
                 var res = result.response;
                 if (res) {
-                    event.save((err) => {
-                        if (err) {
-                            workflow.emit('error-handler', err);
-                        } else {
-                            socket.emit('new-event', [{ "success": true }]);
-                            getEvents(io, socket, token)
-                        }
-                    });
+                    workflow.emit('response', event)
                 } else {
                     workflow.emit('error-handler', 'Response not found');
                 }
+            }
+        });
+    });
+
+    
+    workflow.on('response', (event) => {
+        let name = event.name + " " + (index + 1)
+        event.name = name
+        event.save((err) => {
+            index += 1
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                socket.emit('new-event', [{ "success": true }]);
+                getEvents(io, socket, token)
             }
         });
     });
@@ -217,7 +225,7 @@ var getEvents = (io, socket, token) => {
                     }
                 });
             }
-        });
+        }).limit(15).sort('-dateCreated');
     });
 
     workflow.emit('validate-parameters');
@@ -266,11 +274,98 @@ var getEvent = (io, socket, idEvent, token) => {
         })
     });
 
-    workflow.on('response', (event) => {       
-        socket.emit('get-event', [event]);        
+    workflow.on('response', (event) => {
+        socket.emit('get-event', [event]);
     });
 
     workflow.emit('validate-parameters');
+}
+
+var getMoreEvents = (io, socket, from, token) => {
+    var workflow = new (require('events').EventEmitter)();
+    
+        workflow.on('validate-parameters', () => {
+            if (!token) {
+                workflow.emit('error-handler', 'Token is required')
+            } else {
+                workflow.emit('validate-token', token)
+            }
+        });
+    
+        workflow.on('validate-token', (token) => {
+            jwt.verify(token, key, (err, decoded) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                } else {
+                    if (!decoded.id) {
+                        workflow.emit('error-handler', 'Id of user not found');
+                    } else {
+                        workflow.emit('get-events');
+                    }
+                }
+            });
+        });
+    
+        workflow.on('error-handler', (err) => {
+            socket.emit('get-events', [{ 'error': err }]);
+        });
+    
+        workflow.on('get-events', () => {
+            Event.find({})
+            .sort('-dateCreated')
+            .skip(from)
+            .limit(5)
+            .exec((err, events) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                } else {
+    
+                    if (!events) { socket.emit('get-events', [{}]); return }
+    
+                    if (events.length === 0) { socket.emit('get-more-events', [{}]); return }
+    
+                    var eventsModified = events
+                    var checkEvent = 0, checkTicket = 0;
+                    events.forEach((event) => {
+                        //get url photoCover
+                        var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+                        event.photoCoverPath = path
+                        var ticketsObject = []
+                        checkEvent += 1
+                        //get tickets
+                        let tickets = event.tickets
+                        if (tickets || tickets.length > 0) {
+                            lodash.forEach(tickets, (id) => {
+                                getTicket(id, (result) => {
+    
+                                    if (result.error) {
+                                        workflow.emit('error-handler', result.error)
+                                    } else {
+                                        if (result.ticket) {
+                                            ticketsObject.push(result.ticket);
+                                            checkTicket += 1
+    
+                                            if (checkTicket === tickets.length) {
+                                                event.tickets = ticketsObject
+                                                if (checkEvent === events.length) {
+                                                    socket.emit('get-more-events', events);
+                                                }
+                                            }
+                                        } else {
+                                            workflow.emit('error-handler', 'Ticket of Event not found');
+                                        }
+                                    }
+                                });
+                            })
+                        } else {
+                            check += 1
+                        }
+                    });
+                }
+            })
+        });
+    
+        workflow.emit('validate-parameters');
 }
 var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
@@ -509,7 +604,6 @@ var unlike = (io, socket, idEvent, token) => {
     });
     workflow.emit('validate-parameters');
 }
-
 function newTicket(tickets, callback) {
     Ticket.insertMany(tickets, (err, ticket) => {
         let result = {
@@ -520,7 +614,6 @@ function newTicket(tickets, callback) {
         return callback(result)
     });
 }
-
 function getTicket(id, callback) {
     Ticket.findById(id, (err, ticket) => {
         let result = {
@@ -530,7 +623,6 @@ function getTicket(id, callback) {
         return callback(result)
     })
 }
-
 function getEventCallBack(socket, idEvent, callback) {
     Event.findById(idEvent, (err, event) => {
         if (err) {
@@ -557,11 +649,11 @@ function getEventCallBack(socket, idEvent, callback) {
                             if (id) {
                                 Ticket.findById(id, (err, ticket) => {
                                     checkTicket += 1
-        
+
                                     if (ticket) {
                                         ticketsFull.push(ticket);
                                     }
-        
+
                                     if (checkTicket === tickets.length) {
                                         event.tickets = ticketsFull
                                         return callback(null, event);
@@ -585,6 +677,7 @@ function getEventCallBack(socket, idEvent, callback) {
 module.exports = {
     newEvent: newEvent,
     getEvents: getEvents,
+    getMoreEvents: getMoreEvents,
     getEvent: getEvent,
     uploadImageCover: uploadImageCover,
     router: router,
