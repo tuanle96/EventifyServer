@@ -1,18 +1,19 @@
 
 'use strict';
 
-var Ticket = require('../models/index').ticket;
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
 var lodash = require('lodash');
 
 var User = require('../models/index').user;
+var Event = require('../models/index').event;
+var Ticket = require('../models/index').ticket;
 
 /**
  * tickets for user manager
  */
-var newTicket = (io, socket, ticket, token) => {    
-    
+var newTicket = (io, socket, ticket, token) => {
+
     var name = ticket.name,
         description = ticket.description,
         quantity = ticket.quantity,
@@ -41,7 +42,7 @@ var newTicket = (io, socket, ticket, token) => {
 
     workflow.on('validate-token', (token) => {
         jwt.verify(token, key, (err, decoded) => {
-            if (err) {                
+            if (err) {
                 workflow.emit('error-handler', err)
             } else {
                 var id = decoded.id
@@ -69,7 +70,7 @@ var newTicket = (io, socket, ticket, token) => {
         if (maxToOrder) { ticketObject.maxToOrder = maxToOrder }
         if (price) { ticketObject.price = price }
 
-        console.log(ticketObject);        
+        console.log(ticketObject);
 
         User.findById(idUser, (err, user) => {
             if (err) {
@@ -81,14 +82,14 @@ var newTicket = (io, socket, ticket, token) => {
                     user.tickets = []
                     user.tickets.push(ticketObject)
                 }
-                
+
                 user.save((err) => {
                     if (err) {
                         workflow.emit('error-handler', err)
                     } else {
 
                         let result = {
-                            "success" : true
+                            "success": true
                         }
 
                         socket.emit('new-ticket', [result]);
@@ -102,6 +103,7 @@ var newTicket = (io, socket, ticket, token) => {
     workflow.emit('validate-parameters');
 }
 
+//get tickets for user manager
 var getTickets = (io, socket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -152,6 +154,7 @@ var getTickets = (io, socket, token) => {
     workflow.emit('validate-token', token);
 }
 
+//user manager
 var deleteTicket = (io, socket, idTicket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -228,6 +231,7 @@ var deleteTicket = (io, socket, idTicket, token) => {
     workflow.emit('validate-parameters');
 }
 
+//edit ticket for user manager
 var editTicket = (io, socket, ticket, token) => {
     var workflow = new (require('events').EventEmitter)();
     var idTicket = ticket._id, name = ticket.name,
@@ -300,7 +304,7 @@ var editTicket = (io, socket, ticket, token) => {
                                     workflow.emit('error-handler', err);
                                 } else {
                                     let result = {
-                                        "success" : 1
+                                        "success": 1
                                     }
                                     socket.emit('edit-ticket', [result]);
                                     getTickets(io, socket, token)
@@ -318,10 +322,97 @@ var editTicket = (io, socket, ticket, token) => {
     workflow.emit('validate-parameters');
 }
 
+var getTicketsByEvent = (io, socket, idEvent, token) => {
+    var workflow = new (require('events').EventEmitter)();
+    workflow.on('validate-parameters', () => {
+        if (!idEvent) {
+            workflow.emit('error-handler', 'Event is required');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required!');
+            return
+        }
+
+        workflow.emit('validate-token', token);
+    });
+
+    workflow.on('validate-token', (token) => {
+        if (!token) {
+            workflow.emit('error-handler', 'Token required')
+        } else {
+            jwt.verify(token, key, (err, decoded) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                } else {
+                    var idUser = decoded.id
+                    if (!idUser) {
+                        workflow.emit('error-handler', 'Id user not found')
+                    } else {
+                        workflow.emit('get-detail-tickets', idUser);
+                    }
+                }
+            });
+        }
+    });
+
+    workflow.on('error-handler', (err) => {
+        console.log(err);
+        socket.emit('get-detail-tickets', [{ 'error': err }])
+    });
+
+    workflow.on('get-detail-tickets', (idUser) => {
+        Event.findById(idEvent, (err, event) => {
+            if (err) {
+                workflow.emit('error-hanlder', err);
+                return
+            }
+
+            var tickets = event.tickets
+
+            if (!tickets || tickets.length === 0) {
+                workflow.emit('response', tickets);
+                return
+            }
+
+            var check = 0;
+            var ticketsSent = [];
+            lodash.forEach(tickets, (element) => {
+                let id = element._id;
+
+                Ticket.findById(id, (err, ticket) => {
+                    check += 1;
+                    if (ticket) {
+                        ticketsSent.push(ticket);
+                    }
+
+                    if (check === tickets.length) {
+                        workflow.emit('response', tickets);
+                    }
+                });
+            });
+        });
+    });
+
+    workflow.on('response', (tickets) => {
+        if (!tickets || tickets.length === 0) { socket.emit('get-detail-tickets', [{}]); return; }
+
+        if (!io) {
+            socket.emit('get-detail-tickets', tickets);
+        } else {
+            io.emit('get-detail-tickets', tickets);
+        }
+    });
+
+    workflow.emit('validate-parameters');
+}
+
 module.exports = {
     newTicket: newTicket,
     getTickets: getTickets,
     deleteTicket: deleteTicket,
-    editTicket: editTicket
+    editTicket: editTicket,
+    getTicketsByEvent: getTicketsByEvent
 }
 

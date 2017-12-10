@@ -11,10 +11,10 @@ var User = require('../models/index').user;
 var Order = require('../models/index').order;
 var Event = require('../models/index').event;
 
+let TicketRouter = require('../ticket/index').ticket
 let pathQRCode = 'uploads/Images/Orders/';
 
 var beginOrder = (io, socket, order, token) => {
-
     var idEvent = order.idEvent,
         tickets = order.tickets;
 
@@ -66,38 +66,69 @@ var beginOrder = (io, socket, order, token) => {
         order.orderBy = idUser;
         order.completed = false;
         order.tickets = []
+        var ticketsToOrder = []
 
-        var check = 0, count = 1
-        lodash.forEach(tickets, (ticket) => {
-            let idTicket = ticket.id;
+        for (let i = 0; i < tickets.length; i++) {
+            let idCurrent = tickets[i].id;
+            var count = 0;
 
-            if (!idTicket) {
+            for (let j = 0; j < tickets.length; j++) {
+                if (idCurrent == tickets[j].id) {
+                    count++;
+                }
+            }
+
+            let ticketToOrder = { 'id': tickets[i].id, 'quantity': count };
+
+            let index = lodash.findIndex(ticketsToOrder, (ticket) => {
+                return ticket.id === tickets[i].id
+            });
+
+            if (index == -1) {
+                ticketsToOrder.push(ticketToOrder);
+            }
+        }
+
+        var count = 1;
+        lodash.forEach(tickets, (element) => {
+            let id = element.id;
+
+            if (!id) {
                 workflow.emit('error-handler', 'Ticket not found!');
                 return
             }
 
-            Ticket.findById(idTicket, (err, element) => {
+            let ticket = {
+                '_id': mongoose.Types.ObjectId(id),
+                'QRCode': pathQRCode + order._id + '.' + id + '.' + count + '.png'
+            }
+
+            order.tickets.push(ticket);
+
+            count++;
+        });
+
+        var check = 0;
+        lodash.forEach(ticketsToOrder, (ticket) => {
+            let id = ticket.id, quantity = ticket.quantity;
+
+            if (!id) {
+                workflow.emit('error-handler', 'Ticket not found!');
+                return
+            }
+
+            Ticket.findById(id, (err, element) => {
 
                 if (err) {
                     workflow.emit('error-handler', 'Ticket not found');
                     return
                 }
 
-                
-                let ticket = {
-                    '_id': mongoose.Types.ObjectId(idTicket),
-                    'QRCode': pathQRCode + order._id + '.' + idTicket + '.' + count + '.png'
-                }
+                var oldQuantitiesRemaining = element.quantitiesRemaining;
+                var oldQuantitiesSold = element.quantitiesSold;
 
-                count += 1;
-
-                order.tickets.push(ticket);
-
-                let oldQuantitiesRemaining = element.quantitiesRemaining;
-                let oldQuantitiesSold = element.quantitiesSold;
-
-                var newQuantitiesRemaining = oldQuantitiesRemaining - 1;
-                var newQuantitiesSold = oldQuantitiesSold + 1;
+                var newQuantitiesRemaining = oldQuantitiesRemaining - quantity;
+                var newQuantitiesSold = oldQuantitiesSold + quantity;
 
                 element.quantitiesRemaining = newQuantitiesRemaining
                 element.quantitiesSold = newQuantitiesSold
@@ -109,7 +140,7 @@ var beginOrder = (io, socket, order, token) => {
                         return
                     }
 
-                    if (check === tickets.length) {
+                    if (check === ticketsToOrder.length) {
                         workflow.emit('response', order);
                     }
                 });
@@ -125,6 +156,7 @@ var beginOrder = (io, socket, order, token) => {
             }
 
             socket.emit('begin-order', [order])
+            TicketRouter.getTicketsByEvent(io, socket, idEvent, token)
         });
     })
 
@@ -242,6 +274,7 @@ var order = (io, socket, order, token) => {
 var cancelOrder = (io, socket, id, token) => {
 
     var workflow = new (require('events').EventEmitter)();
+    var idEvent = null;
 
     workflow.on('validate-parameters', () => {
 
@@ -282,14 +315,39 @@ var cancelOrder = (io, socket, id, token) => {
                 workflow.emit('error-handler', err);
                 return
             }
-
-            let tickets = order.tickets
+            idEvent = order.event
+            let tickets = order.tickets;
 
             if (!tickets || tickets.length === 0) { workflow.emit('response'); return }
 
+            var ticketsToOrder = [];
+
+            for (var i = 0; i < tickets.length; i++) {
+                var count = 0;
+                for (var j = 0; j < tickets.length; j++) {
+                    if (String(tickets[i]._id) == String(tickets[j]._id)) {
+                        count++;                        
+                    }
+                }
+
+                let ticketToOrder = { '_id': String(tickets[i]._id), 'quantity': count };
+
+                let index = lodash.findIndex(ticketsToOrder, (ticket) => {
+                    return ticket._id === String(tickets[i]._id)
+                });
+
+                if (index == -1) {
+                    ticketsToOrder.push(ticketToOrder);
+                }
+            }
+
+            console.log(ticketsToOrder);
+
             var check = 0;
-            lodash.forEach(tickets, (element) => {
-                let idTicket = element._id;
+            lodash.forEach(ticketsToOrder, (element) => {
+                let idTicket = element._id,
+                    quantity = element.quantity;
+
                 if (!idTicket) {
                     workflow.emit('error-handler', 'Ticket not found');
                     return
@@ -304,11 +362,8 @@ var cancelOrder = (io, socket, id, token) => {
                     let oldQuantitiesRemaining = ticket.quantitiesRemaining,
                         oldQuantitiesSold = ticket.quantitiesSold
 
-                    let newQuantitiesRemaining = oldQuantitiesRemaining + 1
-                    let newQuantitiesSold = oldQuantitiesSold - 1
-
-                    ticket.quantitiesRemaining = newQuantitiesRemaining;
-                    ticket.quantitiesSold = newQuantitiesSold;
+                    ticket.quantitiesRemaining = oldQuantitiesRemaining + quantity;
+                    ticket.quantitiesSold = oldQuantitiesSold - quantity;
 
                     ticket.save((err) => {
                         check += 1;
@@ -317,7 +372,7 @@ var cancelOrder = (io, socket, id, token) => {
                             return
                         }
 
-                        if (check === tickets.length) {
+                        if (check === ticketsToOrder.length) {
 
                             Order.remove({ '_id': id }, (err) => {
                                 if (err) {
@@ -334,8 +389,9 @@ var cancelOrder = (io, socket, id, token) => {
     });
 
     workflow.on('response', () => {
-        socket.emit('cancel-order', [{}])
-    })
+        socket.emit('cancel-order', [{}]);
+        TicketRouter.getTicketsByEvent(io, socket, idEvent, token)
+    });
 
     workflow.emit('validate-parameters');
 }
@@ -369,7 +425,7 @@ var getOrdersByToken = (io, socket, token) => {
 
                         workflow.emit('get-orders-by-user', user);
                     })
-                    
+
                 }
             }
         });
@@ -414,14 +470,14 @@ var getOrdersByToken = (io, socket, token) => {
                     if (err) {
                         workflow.emit('error-handler', err);
                         return
-                    }                    
+                    }
 
                     getUser(event.createdBy, (err, user) => {
                         check += 1
                         if (err) {
                             workflow.emit('error-handler', err);
                             return
-                        }   
+                        }
 
                         event.createdBy = user
                         order.event = event
@@ -430,7 +486,7 @@ var getOrdersByToken = (io, socket, token) => {
                             socket.emit('get-orders', orders);
                         }
                     })
-                                      
+
                 });
             });
         }

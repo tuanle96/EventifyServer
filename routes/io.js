@@ -167,6 +167,11 @@ io.of('/').on('connection', (socket) => {
         Ticket.editTicket(io, socket, ticket, token)
     });
 
+    socket.on('get-detail-tickets', (idEvent, token) => {
+        console.log(socket.id + " get-detail-tickets")
+        Ticket.getTicketsByEvent(null, socket, idEvent, token);
+    });
+
 
     /**====================================================
      * Types of Event Routers
