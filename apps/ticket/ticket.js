@@ -388,7 +388,7 @@ var getTicketsByEvent = (io, socket, idEvent, token) => {
                     }
 
                     if (check === tickets.length) {
-                        workflow.emit('response', tickets);
+                        workflow.emit('response', ticketsSent);
                     }
                 });
             });
@@ -397,11 +397,16 @@ var getTicketsByEvent = (io, socket, idEvent, token) => {
 
     workflow.on('response', (tickets) => {
         if (!tickets || tickets.length === 0) { socket.emit('get-detail-tickets', [{}]); return; }
+        
+        let response = {
+            'tickets': tickets,
+            'event': idEvent
+        }
 
         if (!io) {
-            socket.emit('get-detail-tickets', tickets);
+            socket.emit('get-detail-tickets', [response]);
         } else {
-            io.emit('get-detail-tickets', tickets);
+            io.emit('get-detail-tickets', [response]);
         }
     });
 
