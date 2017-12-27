@@ -51,7 +51,7 @@ app.use(express.static(path.join(__dirname, 'public')));
    res.redirect('https://' + req.hostname + req.url);
  };
 
-// app.all('*', ensureSecure);
+app.all('*', ensureSecure);
 
 app.use('/', routes);
 app.use('/user', user);

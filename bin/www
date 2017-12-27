@@ -14,15 +14,15 @@ var io = require('../routes/io');
  */
 
 var portHttps = normalizePort(process.env.PORT || '443'); //443
-var portHttp = normalizePort(process.env.PORT || '8080'); //80
-//app.set('portHttps', portHttps);
+var portHttp = normalizePort(process.env.PORT || '80'); //80
+app.set('portHttps', portHttps);
 app.set('portHttp', portHttp)
 
 /**
  * Listen on provided port, on all network interfaces.
  */
 
-//serverHttps.listen(portHttps);
+serverHttps.listen(portHttps);
 serverHttp.listen(portHttp);
 serverHttp.on('error', onError);
 serverHttp.on('listening', onListening);
