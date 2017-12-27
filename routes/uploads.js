@@ -8,8 +8,6 @@ router.get('/', (req, res, next) => {
     res.render('index', { title: 'This is uploads page' });
 });
 
-//./uploads/Images/Events/Cover/5a23f58b21ce8135f83ab29b1512306103.jpg
-
 router.get('/Images/Events/Cover/:path', (req, res) => {
     var path = req.params.path;
     let originUrl = '.' + req.client.parser.incoming.originalUrl
@@ -24,6 +22,18 @@ router.get('/Images/Events/Cover/:path', (req, res) => {
     }
 });
 
+router.get('/Images/Events/Descriptions/:path', (req, res) => {
+    var path = req.params.path;
+    let originUrl = '.' + req.client.parser.incoming.originalUrl
+    if (fs.existsSync(originUrl)) {         
+        res.download(originUrl, path, (err) => {  
+
+        });
+    } else {
+        res.render('index', { title: path });
+    }
+});
+
 router.get('/Images/Orders/:path', (req, res) => {
     var path = req.params.path;
     console.log(path);
@@ -31,9 +41,7 @@ router.get('/Images/Orders/:path', (req, res) => {
     console.log(originUrl);
     if (fs.existsSync(originUrl)) {
         res.download(originUrl, path, (err) => {
-            if (err) {
-                return res.json(err);
-            }
+           
         });
     } else {
 

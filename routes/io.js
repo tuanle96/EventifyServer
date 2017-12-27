@@ -125,7 +125,6 @@ io.of('/').on('connection', (socket) => {
         Event.getMorePreviousEvents(io, socket, from, token)
     });
 
-
     socket.on('get-event', (idEvent, token) => {
         console.log(socket.id + " get-event")
         Event.getEvent(io, socket, idEvent, token)
@@ -140,6 +139,12 @@ io.of('/').on('connection', (socket) => {
         //console.log(data + " | " + pathName + " | " + token)
         console.log(socket.id + 'upload-image-cover-event');
         Event.uploadImageCover(io, socket, data, pathName, token);
+    });
+
+    socket.on('upload-image-description-event', (imgData, imgPath, token) => {
+        //console.log(data + " | " + pathName + " | " + token)
+        console.log(socket.id + 'upload-image-description-event');
+        Event.uploadDescriptionImageEvent(io, socket, imgData, imgPath, token); 
     });
 
 

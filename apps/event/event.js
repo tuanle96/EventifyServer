@@ -13,7 +13,10 @@ const key = require('../config/index').key;
 var fs = require('fs');
 var request = require('request');
 var lodash = require('lodash');
-let pathImageCover = 'uploads/Images/Events/Cover/'
+
+const pathImageCover = 'uploads/Images/Events/Cover/'
+const pathDescriptionImage = 'uploads/Images/Events/Descriptions/'
+
 var index = 0
 var newEvent = (io, socket, event, token) => {
 
@@ -450,93 +453,91 @@ var getPreviousEvents = (io, socket, token) => {
 
     workflow.emit('validate-parameters');
 }
-
 var getMorePreviousEvents = (io, socket, from, token) => {
     var workflow = new (require('events').EventEmitter)();
-    
-        workflow.on('validate-parameters', () => {
-            if (!token) {
-                workflow.emit('error-handler', 'Token is required')
+
+    workflow.on('validate-parameters', () => {
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
             } else {
-                workflow.emit('validate-token', token)
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'Id of user not found');
+                } else {
+                    workflow.emit('get-more-previous-events');
+                }
             }
         });
-    
-        workflow.on('validate-token', (token) => {
-            jwt.verify(token, key, (err, decoded) => {
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('get-more-previous-events', [{ 'error': err }]);
+    });
+
+    workflow.on('get-more-previous-events', () => {
+        Event.find({ 'timeEnd': { $lt: Date.now() / 1000 } })
+            .skip(from)
+            .limit(5)
+            .exec((err, events) => {
                 if (err) {
                     workflow.emit('error-handler', err);
                 } else {
-                    if (!decoded.id) {
-                        workflow.emit('error-handler', 'Id of user not found');
-                    } else {
-                        workflow.emit('get-more-previous-events');
-                    }
-                }
-            });
-        });
-    
-        workflow.on('error-handler', (err) => {
-            socket.emit('get-more-previous-events', [{ 'error': err }]);
-        });
-    
-        workflow.on('get-more-previous-events', () => {
-            Event.find({ 'timeEnd': { $lt: Date.now() / 1000 } })
-                .skip(from)
-                .limit(5)
-                .exec((err, events) => {
-                    if (err) {
-                        workflow.emit('error-handler', err);
-                    } else {
-    
-                        if (!events) { socket.emit('get-more-previous-events', [{}]); return }
-    
-                        if (events.length === 0) { socket.emit('get-more-previous-events', [{}]); return }
-    
-                        var eventsModified = events
-                        var checkEvent = 0, checkTicket = 0;
-                        events.forEach((event) => {
-                            //get url photoCover
-                            var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
-                            event.photoCoverPath = path
-                            var ticketsObject = []
-                            checkEvent += 1
-                            //get tickets
-                            let tickets = event.tickets
-                            if (tickets || tickets.length > 0) {
-                                lodash.forEach(tickets, (id) => {
-                                    getTicket(id, (result) => {
-    
-                                        if (result.error) {
-                                            workflow.emit('error-handler', result.error)
-                                        } else {
-                                            if (result.ticket) {
-                                                ticketsObject.push(result.ticket);
-                                                checkTicket += 1
-    
-                                                if (checkTicket === tickets.length) {
-                                                    event.tickets = ticketsObject
-                                                    if (checkEvent === events.length) {
-                                                        socket.emit('get-more-previous-events', events);
-                                                    }
-                                                }
-                                            } else {
-                                                workflow.emit('error-handler', 'Ticket of Event not found');
-                                            }
-                                        }
-                                    });
-                                })
-                            } else {
-                                check += 1
-                            }
-                        });
-                    }
-                })
-        });
-    
-        workflow.emit('validate-parameters');
-}
 
+                    if (!events) { socket.emit('get-more-previous-events', [{}]); return }
+
+                    if (events.length === 0) { socket.emit('get-more-previous-events', [{}]); return }
+
+                    var eventsModified = events
+                    var checkEvent = 0, checkTicket = 0;
+                    events.forEach((event) => {
+                        //get url photoCover
+                        var path = 'http://' + socket.handshake.headers.host + '/' + event.photoCoverPath
+                        event.photoCoverPath = path
+                        var ticketsObject = []
+                        checkEvent += 1
+                        //get tickets
+                        let tickets = event.tickets
+                        if (tickets || tickets.length > 0) {
+                            lodash.forEach(tickets, (id) => {
+                                getTicket(id, (result) => {
+
+                                    if (result.error) {
+                                        workflow.emit('error-handler', result.error)
+                                    } else {
+                                        if (result.ticket) {
+                                            ticketsObject.push(result.ticket);
+                                            checkTicket += 1
+
+                                            if (checkTicket === tickets.length) {
+                                                event.tickets = ticketsObject
+                                                if (checkEvent === events.length) {
+                                                    socket.emit('get-more-previous-events', events);
+                                                }
+                                            }
+                                        } else {
+                                            workflow.emit('error-handler', 'Ticket of Event not found');
+                                        }
+                                    }
+                                });
+                            })
+                        } else {
+                            check += 1
+                        }
+                    });
+                }
+            })
+    });
+
+    workflow.emit('validate-parameters');
+}
 var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
     var workflow = new (require('events').EventEmitter)();
@@ -568,7 +569,7 @@ var uploadImageCover = (io, socket, imgData, imgPath, token) => {
                 if (!decoded.id) {
                     workflow.emit('error-handler', 'User not found');
                 } else {
-                    workflow.emit('upload-image-cover')
+                    workflow.emit('upload-image-cover-event')
                 }
             }
         })
@@ -578,12 +579,12 @@ var uploadImageCover = (io, socket, imgData, imgPath, token) => {
         socket.emit('upload-image-cover-event', [{ 'error': err }]);
     });
 
-    workflow.on('upload-image-cover', () => {
+    workflow.on('upload-image-cover-event', () => {
         //check exist path
-        if (!fs.existsSync(pathImageCover)) {
+        if (!fs.existsSync(pathDescriptionImage)) {
             workflow.emit('error-handler', 'Path not found')
         } else {
-            var path = pathImageCover + imgPath
+            var path = pathDescriptionImage + imgPath
             fs.writeFile(path, imgData, (err) => {
                 if (err) {
                     workflow.emit('error-handler', err)
@@ -596,6 +597,66 @@ var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
     workflow.emit('validate-parameters');
 }
+var uploadDescriptionImageEvent = (io, socket, imgData, imgPath, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!imgData) {
+            workflow.emit('error-handler', 'Data image is required')
+            return
+        }
+
+        if (!imgPath) {
+            workflow.emit('error-handler', 'File name is required');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required');
+            return
+        }
+
+        workflow.emit('validate-token', token);
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'User not found');
+                } else {
+                    workflow.emit('upload-image-description-event')
+                }
+            }
+        })
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('upload-image-description-event', [{ 'error': err }]);
+    });
+
+    workflow.on('upload-image-description-event', () => {
+        //check exist path
+        if (!fs.existsSync(pathDescriptionImage)) {
+            workflow.emit('error-handler', 'Path not found')
+        } else {
+            var path = pathDescriptionImage + imgPath
+            fs.writeFile(path, imgData, (err) => {
+                if (err) {
+                    workflow.emit('error-handler', err)
+                } else {
+                    let downloadURL = 'http://' + socket.handshake.headers.host + '/' + path;
+                    socket.emit('upload-image-description-event', [{ "path": path, "downloadURL": downloadURL }])
+                }
+            });
+        }
+    });
+
+    workflow.emit('validate-parameters');
+}
+
 var getLikedEvents = (io, socket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -852,6 +913,7 @@ module.exports = {
     getMorePreviousEvents: getMorePreviousEvents,
     getEvent: getEvent,
     uploadImageCover: uploadImageCover,
+    uploadDescriptionImageEvent: uploadDescriptionImageEvent,
     router: router,
     like: like,
     unlike: unlike,
