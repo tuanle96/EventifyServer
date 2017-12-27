@@ -7,4 +7,4 @@ ehthumbs.db
 Thumbs.db
 node_modules/
 app.js
-bin/www
+bin/
