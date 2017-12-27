@@ -215,14 +215,19 @@ var updatePw = (io, socket, currentPw, newPw, token) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                user.password = newPw
-                user.save((err) => {
-                    if (err) {
-                        workflow.emit('error-handler', err);
-                    } else {
-                        socket.emit('update-password', [{}]);
-                    }
-                });
+
+                if (user.password !== currentPw) {
+                    workflow.emit('error-handler', 'Confirm password not match!')
+                } else {
+                    user.password = newPw
+                    user.save((err) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                        } else {
+                            socket.emit('update-password', [{}]);
+                        }
+                    });
+                }
             }
         });
     });
@@ -296,8 +301,7 @@ var updateAvatarUser = (io, socket, imgData, imgPath, token) => {
                                 if (err) {
                                     workflow.emit('error-handler', err);
                                 } else {
-                                    socket.emit('upload-image-user', [{}])
-                                    getInformations(io, socket, token);
+                                    socket.emit('upload-image-user', [{ "path": 'http://' + socket.handshake.headers.host + '/' + user.photoPath }])
                                 }
                             })
                         }
@@ -305,6 +309,182 @@ var updateAvatarUser = (io, socket, imgData, imgPath, token) => {
                 }
             });
         }
+    });
+
+    workflow.emit('validate-parameters');
+}
+
+var updatePhoneNumber = (io, socket, newPhoneNumber, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+
+        if (!newPhoneNumber) {
+            workflow.emit('error-handler', 'New phone number is required!');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token not found');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('errors-handler', err);
+            } else {
+                var id = decoded.id
+                if (!id) {
+                    workflow.emit('errors-handler', 'Id user not found');
+                } else {
+                    workflow.emit('update-phone-number', id);
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (error) => {
+        socket.emit('update-phone-number', [{ 'error': error }]);
+    });
+
+    workflow.on('update-phone-number', (id) => {
+        User.findById(id, (err, user) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                user.phoneNumber = newPhoneNumber;
+                user.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                    } else {
+                        socket.emit('update-phone-number', [{}]);
+                    }
+                });
+            }
+        });
+    });
+
+    workflow.emit('validate-parameters');
+}
+
+var updateEmail = (io, socket, currentPassword, newEmail, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!currentPassword) {
+            workflow.emit('error-handler', 'Current password is required!');
+            return
+        }
+
+        if (!newEmail) {
+            workflow.emit('error-handler', 'New email is required!');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token not found');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('errors-handler', err);
+            } else {
+                var id = decoded.id
+                if (!id) {
+                    workflow.emit('errors-handler', 'Id user not found');
+                } else {
+                    workflow.emit('update-email', id);
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (error) => {
+        socket.emit('update-email', [{ 'error': error }]);
+    });
+
+    workflow.on('update-email', (id) => {
+        User.findById(id, (err, user) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                if (user.password !== currentPassword) {
+                    workflow.emit('error-handler', 'Confirm password not match!')
+                } else {
+                    user.email = newEmail;
+                    user.save((err) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                        } else {
+                            socket.emit('update-email', [{}]);
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+    workflow.emit('validate-parameters');
+}
+
+var updateFullName = (io, socket, newFullName, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+
+        if (!newFullName) {
+            workflow.emit('error-handler', 'New full name is required!');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token not found');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('errors-handler', err);
+            } else {
+                var id = decoded.id
+                if (!id) {
+                    workflow.emit('errors-handler', 'Id user not found');
+                } else {
+                    workflow.emit('update-full-name', id);
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (error) => {
+        socket.emit('update-full-name', [{ 'error': error }]);
+    });
+
+    workflow.on('update-full-name', (id) => {
+        User.findById(id, (err, user) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                user.fullName = newFullName;
+                user.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                    } else {
+                        socket.emit('update-full-name', [{}]);
+                    }
+                }); 
+            }
+        });
     });
 
     workflow.emit('validate-parameters');
@@ -357,7 +537,7 @@ var getInformations = (io, socket, token) => {
         User.findById(id, (err, user) => {
             if (err) {
                 workflow.emit('error-handler', err);
-            } else {                
+            } else {
                 let path = user.photoPath
 
                 if (path) {
@@ -422,7 +602,7 @@ var getInformationsFromGoogleAPI = (token, result) => {
         return result({ "error": "aa", "informations": null })
     });
 
-    
+
 }
 
 var getInformationsFromFaceBook = (token, result) => {
@@ -442,7 +622,10 @@ module.exports = {
     loginWithGooglePlus: loginWithGooglePlus,
     signUp: signUp,
     updatePw: updatePw,
+    updatePhoneNumber: updatePhoneNumber,
     updateInformations: updateInformations,
+    updateEmail: updateEmail,
+    updateFullName: updateFullName,
     likeEvent: likeEvent,
     unlikeEvent: unlikeEvent,
     signOut: signOut,
