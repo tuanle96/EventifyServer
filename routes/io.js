@@ -98,6 +98,12 @@ io.of('/').on('connection', (socket) => {
 
     });
 
+    //updateAvatarUser
+    socket.on('upload-image-user', (imgData, imgPath, token) => {
+        console.log(socket.id + " upload-image-user")
+        User.updateAvatarUser(io, socket, imgData, imgPath, token);
+    });
+
 
     /**====================================================
      * Events Routers

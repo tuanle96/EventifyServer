@@ -4,6 +4,8 @@ var User = require('../models/index').user;
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
 const request = require('request');
+const photoPath = 'uploads/Images/Users/';
+const fs = require('fs');
 
 var login = (io, socket, object) => {
 
@@ -233,6 +235,81 @@ var updateInformations = (io, socket, user, token) => {
 
 }
 
+var updateAvatarUser = (io, socket, imgData, imgPath, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!imgData) {
+            workflow.emit('error-handler', 'Data image is required')
+            return
+        }
+
+        if (!imgPath) {
+            workflow.emit('error-handler', 'File name is required');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required');
+            return
+        }
+
+        workflow.emit('validate-token', token);
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                let idUser = decoded.id
+                if (!idUser) {
+                    workflow.emit('error-handler', 'User not found');
+                } else {
+                    workflow.emit('upload-image-user', idUser)
+                }
+            }
+        })
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('upload-image-user', [{ 'error': err }]);
+    });
+
+    workflow.on('upload-image-user', (idUser) => {
+        //check exist path
+        if (!fs.existsSync(photoPath)) {
+            workflow.emit('error-handler', 'Path not found')
+        } else {
+            var path = photoPath + imgPath
+            fs.writeFile(path, imgData, (err) => {
+                if (err) {
+                    workflow.emit('error-handler', err)
+                } else {
+
+                    User.findById(idUser, (err, user) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                        } else {
+                            user.photoPath = path
+                            user.save((err) => {
+                                if (err) {
+                                    workflow.emit('error-handler', err);
+                                } else {
+                                    socket.emit('upload-image-user', [{}])
+                                    getInformations(io, socket, token);
+                                }
+                            })
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    workflow.emit('validate-parameters');
+}
+
 //like event
 var likeEvent = (req, res) => {
 
@@ -280,7 +357,12 @@ var getInformations = (io, socket, token) => {
         User.findById(id, (err, user) => {
             if (err) {
                 workflow.emit('error-handler', err);
-            } else {
+            } else {                
+                let path = user.photoPath
+
+                if (path) {
+                    user.photoPath = 'http://' + socket.handshake.headers.host + '/' + path;
+                }
                 socket.emit('get-informations', [user]);
             }
         });
@@ -370,5 +452,6 @@ module.exports = {
     getMyTickets: getMyTickets,
     getMyOrders: getMyOrders,
     newOrder: newOrder,
+    updateAvatarUser: updateAvatarUser
 }
 

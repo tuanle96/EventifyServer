@@ -871,6 +871,7 @@ function getEventCallBack(socket, idEvent, callback) {
                 User.findById(idUser, (err, user) => {
                     if (err) { return callback(err, null); }
                     event.createdBy = user;
+                    user.photoPath = 'http://' + socket.handshake.headers.host + '/' + user.photoPath;
 
                     if (tickets) {
                         var ticketsFull = [],
