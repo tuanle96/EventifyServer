@@ -235,11 +235,6 @@ var updatePw = (io, socket, currentPw, newPw, token) => {
     workflow.emit('validate-parameters');
 }
 
-//update information
-var updateInformations = (io, socket, user, token) => {
-
-}
-
 var updateAvatarUser = (io, socket, imgData, imgPath, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -623,7 +618,6 @@ module.exports = {
     signUp: signUp,
     updatePw: updatePw,
     updatePhoneNumber: updatePhoneNumber,
-    updateInformations: updateInformations,
     updateEmail: updateEmail,
     updateFullName: updateFullName,
     likeEvent: likeEvent,

@@ -41,13 +41,9 @@ io.of('/').on('connection', (socket) => {
     });
 
     //update password
-    socket.on('update-password', (data) => {
-        User.updatePw(io, socket, data.currentPw, data.newPw, data.token);
-    });
-
-    //update informations
-    socket.on('update-informations', (data) => {
-
+    socket.on('update-password', (currentPw, newPw, token) => {
+        console.log(socket.id + " update-password");
+        User.updatePw(io, socket, currentPw, newPw, token);
     });
 
     //sign out
@@ -102,6 +98,24 @@ io.of('/').on('connection', (socket) => {
     socket.on('upload-image-user', (imgData, imgPath, token) => {
         console.log(socket.id + " upload-image-user")
         User.updateAvatarUser(io, socket, imgData, imgPath, token);
+    });
+
+    //update full name
+    socket.on('update-full-name', (newFullName, token) => {
+        console.log(socket.id + " update-full-name")
+        User.updateFullName(io, socket, newFullName, token);
+    });
+
+    //update phone number
+    socket.on('update-phone-number', (newPhoneNumber, token) => {
+        console.log(socket.id + " update-phone-number")
+        User.updatePhoneNumber(io, socket, newPhoneNumber, token);
+    });
+
+    //update email
+    socket.on('update-email', (currentPw, newEmail, token) => {
+        console.log(socket.id + " update-email")
+        User.updateEmail(io, socket, currentPw, newEmail, token);
     });
 
 
