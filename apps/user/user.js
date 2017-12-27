@@ -3,6 +3,7 @@
 var User = require('../models/index').user;
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
+const request = require('request');
 
 var login = (io, socket, object) => {
 
@@ -19,7 +20,7 @@ var login = (io, socket, object) => {
         if (!password) {
             workflow.emit('error-handler', 'Password is required');
             return
-        };               
+        };
 
         workflow.emit('sign-in');
     });
@@ -56,17 +57,44 @@ var login = (io, socket, object) => {
 }
 
 //sign in with facebook
-var loginWithFacebook = (req, res) => {
+var loginWithFacebook = (io, socket, FBToken) => {
 
 }
 //sign in with google plus
-var loginWithGooglePlus = (req, res) => {
+var loginWithGooglePlus = (io, socket, GGToken) => {
 
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!GGToken) {
+            workflow.emit('error-handler', 'Token is missing!');
+            return
+        };
+
+        workflow.emit('sign-in-with-google-plus');
+    });
+
+    workflow.on('error-handler', (error) => {
+        socket.emit('sign-in-with-google-plus', [{ 'error': error }]);
+    });
+
+    workflow.on('sign-in-with-google-plus', () => {
+
+        //from token has been received, we can get user's informations via GooglePlus APIs and return it to client
+        getInformationsFromGoogleAPI(GGToken, (error, informations) => {
+
+        })
+    });
+
+    workflow.on('response', (informations) => {
+        socket.emit('sign-in-with-google-plus', [informations]);
+    });
+
+    workflow.emit('validate-parameters');
 }
 
 //sign up with email & password
 var signUp = (io, socket, object) => {
-    console.log(object)
     var email = object.email,
         password = object.password,
         dateCreated = object.dateCreated,
@@ -228,7 +256,7 @@ var getInformations = (io, socket, token) => {
             return
         }
 
-        //validate token        
+        //validate token          
         jwt.verify(token, key, (err, decoded) => {
             if (err) {
                 workflow.emit('error-handler', err);
@@ -266,6 +294,10 @@ var getInformationsWithId = (io, socket, token, id) => {
 
 }
 
+var getInformationWithEmail = (io, socket, email) => {
+
+}
+
 //get liked event
 var getLikedEvents = (req, res) => {
 
@@ -285,8 +317,42 @@ var newOrder = (req, res) => {
 }
 
 var newTicket = (io, socket, ticket, token) => {
+
+}
+
+var getInformationsFromGoogleAPI = (token, result) => {
+    let urlEndpoint = "https://www.googleapis.com/plus/v1/people/?key=" + token
+
+    console.log(urlEndpoint);
+
+    request(urlEndpoint, (error, response, body) => {
+        console.log('error:', error); // Print the error if one occurred
+        console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+        console.log('body:', body); // Print the HTML for the Google homepage.
+
+        if (error) {
+            return result({ "error": error, "informations": null })
+        }
+
+        if ((response && response.statusCode) === 200) {
+
+        }
+        return result({ "error": "aa", "informations": null })
+    });
+
     
 }
+
+var getInformationsFromFaceBook = (token, result) => {
+
+    return result({});
+}
+
+var getInformationFromZalo = (token, result) => {
+
+    return result({});
+}
+
 
 module.exports = {
     login: login,

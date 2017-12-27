@@ -23,13 +23,15 @@ io.of('/').on('connection', (socket) => {
     });
 
     //sign in with facebook
-    socket.on('sign-in-with-facebook', (data) => {
-
+    socket.on('sign-in-with-facebook', (FBToken) => {
+        console.log(socket.id + " sign-in-with-facebook");
+        User.loginWithFacebook(io, socket, FBToken);
     });
 
     //sign in with google plus
-    socket.on('sign-in-with-google-plus', (data) => {
-
+    socket.on('sign-in-with-google-plus', (GGToken) => {
+        console.log(socket.id + " sign-in-with-facebook");
+        User.loginWithGooglePlus(io, socket, GGToken);
     });
 
     //sign up
