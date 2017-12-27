@@ -36,9 +36,7 @@ router.get('/Images/Events/Descriptions/:path', (req, res) => {
 
 router.get('/Images/Orders/:path', (req, res) => {
     var path = req.params.path;
-    console.log(path);
     let originUrl = '.' + req.client.parser.incoming.originalUrl
-    console.log(originUrl);
     if (fs.existsSync(originUrl)) {
         res.download(originUrl, path, (err) => {
            
@@ -47,8 +45,6 @@ router.get('/Images/Orders/:path', (req, res) => {
 
         //remove .png file extension
         let code = path.substring(0, path.length - 4);
-        console.log(code);
-
         generateQrCode('uploads/Images/Orders/' + path, code, (err) => {
             if (err) {
                 return res.json(err);
@@ -65,29 +61,13 @@ router.get('/Images/Orders/:path', (req, res) => {
 
 router.get('/Images/Users/:path', (req, res) => {
     var path = req.params.path;
-    console.log(path);
     let originUrl = '.' + req.client.parser.incoming.originalUrl
-    if (fs.existsSync(originUrl)) {
-        res.download(originUrl, path, (err) => {
-           
+    if (fs.existsSync(originUrl)) {         
+        res.download(originUrl, path, (err) => {  
+
         });
     } else {
-
-        //remove .png file extension
-        let code = path.substring(0, path.length - 4);
-        console.log(code);
-
-        generateQrCode('uploads/Images/Orders/' + path, code, (err) => {
-            if (err) {
-                return res.json(err);
-            }
-
-            res.download(originUrl, path, (err) => {
-                if (err) {
-                    return res.json(err);
-                }
-            })
-        })
+        res.render('index', { title: path });
     }
 });
 
