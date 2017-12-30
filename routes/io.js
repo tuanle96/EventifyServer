@@ -130,6 +130,11 @@ io.of('/').on('connection', (socket) => {
         Event.getEvents(io, socket, token)
     });
 
+    socket.on('get-my-events', (token) => {
+        console.log(socket.id + " get-my-events")
+        Event.getMyEvents(io, socket, token);
+    });
+
     socket.on('get-previous-events', (token) => {
         console.log(socket.id + " get-previous-events")
         Event.getPreviousEvents(io, socket, token)

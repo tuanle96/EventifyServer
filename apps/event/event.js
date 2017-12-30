@@ -136,15 +136,35 @@ var newEvent = (io, socket, event, token) => {
 
 
     workflow.on('response', (event) => {
-        let name = event.name + " " + (index + 1)
-        event.name = name
+        //let name = event.name + " " + (index + 1)
+        //event.name = name
         event.save((err) => {
-            index += 1
+            //index += 1
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                socket.emit('new-event', [{ "success": true }]);
-                getEvents(io, socket, token)
+                //save event to user
+                let idUser = event.createdBy;
+
+                if (idUser) {
+                    User.findById(idUser, (err, user) => {
+                        if (err) {
+                            workflow.emit('error-handler', err)
+                        } else {
+                            user.myEvents.push(event._id);
+
+                            user.save((err) => {
+                                if (err) {
+                                    workflow.emit('error-handler', err);
+                                } else {
+                                    socket.emit('new-event', [{ "success": true }]);
+                                    getEvents(io, socket, token);
+                                    getMyEvents(io, socket, token);
+                                }
+                            });
+                        }
+                    });
+                }
             }
         });
     });
@@ -538,6 +558,81 @@ var getMorePreviousEvents = (io, socket, from, token) => {
 
     workflow.emit('validate-parameters');
 }
+var getMyEvents = (io, socket, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                let idUser = decoded.id;
+                if (!idUser) {
+                    workflow.emit('error-handler', 'Id of user not found');
+                } else {
+                    workflow.emit('get-my-events', idUser);
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('get-my-events', [{ 'error': err }]);
+    });
+
+    workflow.on('get-my-events', (idUser) => {
+
+        User.findById(idUser, (err, user) => {
+            if (err) {
+                workflow.emit('error-handler', err)
+            } else {
+                if (!user) {
+                    workflow.emit('error-handler', 'User not found');
+                    return
+                }
+
+                let myEvents = user.myEvents
+
+                if (!myEvents || myEvents.length === 0) {
+                    workflow.emit('response', [{}]);
+                    return
+                }
+                var check = 0, 
+                    events = [];
+                lodash.forEach(myEvents, (event) => {
+                    getEventCallBack(socket, event, (err, event) => {
+                        check++;
+                        if (err) {
+                            workflow.emit('error-handler', err)
+                        } else {
+                            if (event) {
+                                events.push(event);
+                            }
+                        }
+
+                        if (check === myEvents.length) {
+                            workflow.emit('response', events);
+                        }
+                    });
+                })
+            }
+        });        
+    });
+
+    workflow.on('response', (events) => {
+        socket.emit('get-my-events', events);
+    });
+
+    workflow.emit('validate-parameters');
+}
 var uploadImageCover = (io, socket, imgData, imgPath, token) => {
 
     var workflow = new (require('events').EventEmitter)();
@@ -656,7 +751,6 @@ var uploadDescriptionImageEvent = (io, socket, imgData, imgPath, token) => {
 
     workflow.emit('validate-parameters');
 }
-
 var getLikedEvents = (io, socket, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -855,6 +949,11 @@ function getTicket(id, callback) {
     })
 }
 function getEventCallBack(socket, idEvent, callback) {
+
+    if (!idEvent) {
+        return callback('Id is required', null);
+    }
+
     Event.findById(idEvent, (err, event) => {
         if (err) {
             return callback(err, null);
@@ -913,6 +1012,7 @@ module.exports = {
     getPreviousEvents: getPreviousEvents,
     getMorePreviousEvents: getMorePreviousEvents,
     getEvent: getEvent,
+    getMyEvents: getMyEvents,
     uploadImageCover: uploadImageCover,
     uploadDescriptionImageEvent: uploadDescriptionImageEvent,
     router: router,

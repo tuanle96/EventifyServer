@@ -61,8 +61,10 @@ router.get('/Images/Orders/:path', (req, res) => {
 
 router.get('/Images/Users/:path', (req, res) => {
     var path = req.params.path;
-    let originUrl = '.' + req.client.parser.incoming.originalUrl
+    let originUrl = '.' + req.client.parser.incoming.originalUrl;
+    console.log(originUrl);
     if (fs.existsSync(originUrl)) {         
+        
         res.download(originUrl, path, (err) => {  
 
         });
@@ -72,7 +74,6 @@ router.get('/Images/Users/:path', (req, res) => {
 });
 
 var generateQrCode = (path, code, callback) => {
-    console.log(path);
     QRCode.toFile(path, code, {
         color: {
             dark: '#493f3f',  // Blue dots
@@ -85,7 +86,6 @@ var generateQrCode = (path, code, callback) => {
             return callback(null);
         }
     });
-
 }
 
 module.exports = router;

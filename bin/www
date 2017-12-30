@@ -14,7 +14,7 @@ var io = require('../routes/io');
  */
 
 var portHttps = normalizePort(process.env.PORT || '443'); //443
-var portHttp = normalizePort(process.env.PORT || '80'); //80
+var portHttp = normalizePort(process.env.PORT || '8080'); //80
 app.set('portHttps', portHttps);
 app.set('portHttp', portHttp)
 
@@ -22,7 +22,7 @@ app.set('portHttp', portHttp)
  * Listen on provided port, on all network interfaces.
  */
 
-serverHttps.listen(portHttps);
+//serverHttps.listen(portHttps);
 serverHttp.listen(portHttp);
 serverHttp.on('error', onError);
 serverHttp.on('listening', onListening);
@@ -37,7 +37,7 @@ serverHttp.on('listening', onListening);
 // var server = http.createServer(app)
 // var io = app.io
 io.attach(serverHttp);
-io.attach(serverHttps)
+//io.attach(serverHttps)
 /**
  * Normalize a port into a number, string, or false.
  */

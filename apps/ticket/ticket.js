@@ -69,9 +69,7 @@ var newTicket = (io, socket, ticket, token) => {
         if (description) { ticketObject.description = description }
         if (maxToOrder) { ticketObject.maxToOrder = maxToOrder }
         if (price) { ticketObject.price = price }
-
-        console.log(ticketObject);
-
+        
         User.findById(idUser, (err, user) => {
             if (err) {
                 workflow.emit('error-handler', 'User not found')

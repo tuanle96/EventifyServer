@@ -533,12 +533,16 @@ var getInformations = (io, socket, token) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                let path = user.photoPath
+                if (user) {
+                    let path = user.photoPath
 
-                if (path) {
-                    user.photoPath = 'http://' + socket.handshake.headers.host + '/' + path;
+                    if (path) {
+                        user.photoPath = 'http://' + socket.handshake.headers.host + '/' + path;
+                    }
+                    socket.emit('get-informations', [user]);
+                } else {
+                    workflow.emit('error-handler', 'User not found');
                 }
-                socket.emit('get-informations', [user]);
             }
         });
     });
