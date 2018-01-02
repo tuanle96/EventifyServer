@@ -605,7 +605,7 @@ var getMyEvents = (io, socket, token) => {
                     workflow.emit('response', [{}]);
                     return
                 }
-                var check = 0, 
+                var check = 0,
                     events = [];
                 lodash.forEach(myEvents, (event) => {
                     getEventCallBack(socket, event, (err, event) => {
@@ -624,7 +624,7 @@ var getMyEvents = (io, socket, token) => {
                     });
                 })
             }
-        });        
+        });
     });
 
     workflow.on('response', (events) => {
@@ -813,6 +813,81 @@ var getLikedEvents = (io, socket, token) => {
 
     workflow.emit('validate-parameters');
 }
+
+var getUsersOrdered = (io, socket, idEvent, token) => {
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+        if (!idEvent) {
+            workflow.emit('error-handler', 'Event is required!')
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token of user is required!')
+        } else {
+            workflow.emit('validate-token', token)
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err)
+            } else {
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'Id of User is required!');
+                } else {
+                    workflow.emit('get-users-ordered');
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('get-users-ordered', [{ 'error': err }]);
+    });
+
+    workflow.on('get-users-ordered', () => {
+        Event.findById(idEvent, (err, event) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                var usersOrdered = event.ordered;
+                var users = [];
+
+                if (!usersOrdered || usersOrdered.length === 0) {
+                    workflow.emit('response', [{}])
+                } else {
+                    var check = 0;
+                    lodash.forEach(usersOrdered, (idUser) => {
+                        User.findById(idUser, (err, user) => {
+                            check++;
+                            if (err) {
+                                workflow.emit('error-handler', err)
+                            } else {
+                                if (user) {
+                                    users.push(User);
+                                }
+                            }
+
+                            if (check === usersOrdered.length) {
+                                workflow.emit('response', users);
+                            }
+                        })
+                    })                    
+                }
+            }
+        });
+    });
+
+    workflow.on('response', (users) => {
+        socket.emit('get-users-ordered', users)
+    });
+
+    workflow.emit('validate-parameters');
+}
+
 var like = (io, socket, idEvent, token) => {
     var workflow = new (require('events').EventEmitter)();
 
@@ -1018,6 +1093,7 @@ module.exports = {
     router: router,
     like: like,
     unlike: unlike,
-    getLikedEvents: getLikedEvents
+    getLikedEvents: getLikedEvents,
+    getUsersOrdered: getUsersOrdered
 }
 

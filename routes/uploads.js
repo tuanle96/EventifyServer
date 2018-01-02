@@ -11,8 +11,8 @@ router.get('/', (req, res, next) => {
 router.get('/Images/Events/Cover/:path', (req, res) => {
     var path = req.params.path;
     let originUrl = '.' + req.client.parser.incoming.originalUrl
-    if (fs.existsSync(originUrl)) {         
-        res.download(originUrl, path, (err) => {  
+    if (fs.existsSync(originUrl)) {
+        res.download(originUrl, path, (err) => {
             // if (err) {
             //     return res.json(err);
             // }
@@ -25,8 +25,8 @@ router.get('/Images/Events/Cover/:path', (req, res) => {
 router.get('/Images/Events/Descriptions/:path', (req, res) => {
     var path = req.params.path;
     let originUrl = '.' + req.client.parser.incoming.originalUrl
-    if (fs.existsSync(originUrl)) {         
-        res.download(originUrl, path, (err) => {  
+    if (fs.existsSync(originUrl)) {
+        res.download(originUrl, path, (err) => {
 
         });
     } else {
@@ -39,7 +39,7 @@ router.get('/Images/Orders/:path', (req, res) => {
     let originUrl = '.' + req.client.parser.incoming.originalUrl
     if (fs.existsSync(originUrl)) {
         res.download(originUrl, path, (err) => {
-           
+
         });
     } else {
 
@@ -62,10 +62,8 @@ router.get('/Images/Orders/:path', (req, res) => {
 router.get('/Images/Users/:path', (req, res) => {
     var path = req.params.path;
     let originUrl = '.' + req.client.parser.incoming.originalUrl;
-    console.log(originUrl);
-    if (fs.existsSync(originUrl)) {         
-        
-        res.download(originUrl, path, (err) => {  
+    if (fs.existsSync(originUrl)) {
+        res.download(originUrl, path, (err) => {
 
         });
     } else {

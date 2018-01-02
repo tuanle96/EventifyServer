@@ -155,19 +155,22 @@ io.of('/').on('connection', (socket) => {
         Event.getEvent(io, socket, idEvent, token)
     });
 
+    socket.on('get-users-ordered', (idEvent, token) => {
+        console.log(socket.id + " get-users-ordered")
+        Event.getUsersOrdered(io, socket, idEvent, token);
+    });
+
     socket.on('new-event', (event, token) => {
         console.log(socket.id + " new-event")
         Event.newEvent(io, socket, event, token)
     });
 
     socket.on('upload-image-cover-event', (data, pathName, token) => {
-        //console.log(data + " | " + pathName + " | " + token)
         console.log(socket.id + 'upload-image-cover-event');
         Event.uploadImageCover(io, socket, data, pathName, token);
     });
 
     socket.on('upload-image-description-event', (imgData, imgPath, token) => {
-        //console.log(data + " | " + pathName + " | " + token)
         console.log(socket.id + 'upload-image-description-event');
         Event.uploadDescriptionImageEvent(io, socket, imgData, imgPath, token); 
     });
@@ -245,6 +248,12 @@ io.of('/').on('connection', (socket) => {
     socket.on('get-order', (id, token) => {
         console.log(socket.id + " get-order");
         Order.getOrderById(io, socket, id, token);
+    });
+
+    
+    socket.on('check-order', (qrCode, token) => {
+        console.log(socket.id + " check-order");
+        Order.checkOrder(io, socket, qrCode, token);
     });
 
     /**

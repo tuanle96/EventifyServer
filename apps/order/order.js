@@ -100,7 +100,9 @@ var beginOrder = (io, socket, order, token) => {
 
             let ticket = {
                 '_id': mongoose.Types.ObjectId(id),
-                'QRCode': pathQRCode + order._id + '.' + id + '.' + count + '.png'
+                'QRCode': order._id + '.' + id + '.' + count,
+                'QRCodePath': pathQRCode + order._id + '.' + id + '.' + count + '.png',
+                'isCheckedIn': false
             }
 
             order.tickets.push(ticket);
@@ -110,7 +112,8 @@ var beginOrder = (io, socket, order, token) => {
 
         var check = 0;
         lodash.forEach(ticketsToOrder, (ticket) => {
-            let id = ticket.id, quantity = ticket.quantity;
+            let id = ticket.id,
+                quantity = ticket.quantity;
 
             if (!id) {
                 workflow.emit('error-handler', 'Ticket not found!');
@@ -252,7 +255,31 @@ var order = (io, socket, order, token) => {
                             workflow.emit('error-handler', err);
                             return
                         }
-                        workflow.emit('response');
+
+                        //save user who order into event-colletion
+                        Event.findById(order.event, (err, event) => {
+                            if (err) {
+                                workflow.emit('error-handler', err)
+                            } else {
+                                if (event) {
+                                    var orders = event.ordered;
+                                    if (!orders || orders.length === 0) {
+                                        orders = [];
+                                    }
+
+                                    orders.push(idUser);
+                                    event.save((err) => {
+                                        if (err) {
+                                            workflow.emit('error-handler', err);
+                                        } else {
+                                            workflow.emit('response');
+                                        }
+                                    });
+                                } else {
+                                    workflow.emit('response');
+                                }
+                            }
+                        });
                     });
                 });
             });
@@ -326,7 +353,7 @@ var cancelOrder = (io, socket, id, token) => {
                 var count = 0;
                 for (var j = 0; j < tickets.length; j++) {
                     if (String(tickets[i]._id) == String(tickets[j]._id)) {
-                        count++;                        
+                        count++;
                     }
                 }
 
@@ -340,9 +367,6 @@ var cancelOrder = (io, socket, id, token) => {
                     ticketsToOrder.push(ticketToOrder);
                 }
             }
-
-            console.log(ticketsToOrder);
-
             var check = 0;
             lodash.forEach(ticketsToOrder, (element) => {
                 let idTicket = element._id,
@@ -581,6 +605,157 @@ var getOrderById = (io, socket, idOrder, token) => {
     workflow.emit('validate-parameters');
 }
 
+var checkOrder = (io, socket, qrCode, token) => {
+    //5a475be1c1b4b326a6f12d36.5a4741aa518eb724cc596ea1.1
+    //from id order can get informations of user, order, ...
+    var workflow = new (require('events').EventEmitter)();
+
+    workflow.on('validate-parameters', () => {
+
+        if (!qrCode) {
+            workflow.emit('error-handler', 'QRCode is required!');
+            return
+        }
+
+        if (!token) {
+            workflow.emit('error-handler', 'Token is required');
+        } else {
+            workflow.emit('validate-token', token);
+        }
+    });
+
+    workflow.on('validate-token', (token) => {
+        jwt.verify(token, key, (err, decoded) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+            } else {
+                if (!decoded.id) {
+                    workflow.emit('error-handler', 'Id user not found')
+                } else {
+                    workflow.emit('check-order');
+                }
+            }
+        });
+    });
+
+    workflow.on('error-handler', (err) => {
+        socket.emit('check-order', [{ 'error': err }])
+    });
+
+    workflow.on('check-order', () => {
+        //split qrcode
+        var code = lodash.split(qrCode, '.', 3);
+
+        if (!code || code.length === 0 || code.length !== 3) {
+            workflow.emit('error-handler', 'QRcode is not matched formation');
+            return
+        }
+
+        const idOrder = code[0],
+            idTicket = code[1],
+            index = code[2];
+
+        if (!idOrder) {
+            workflow.emit('error-handler', 'Order not found');
+            return
+        }
+
+        if (!idTicket || !index) {
+            workflow.emit('error-handler', 'Ticket not found');
+            return
+        }
+
+        Order.findById(idOrder, (err, order) => {
+            if (err) {
+                workflow.emit('error-handler', err);
+                return
+            }
+
+            if (!order) {
+                workflow.emit('error-handler', 'Order not found');
+                return
+            }
+
+            /**
+             * STATUS: VALID
+             * NAME: LE ANH TUAN
+             * PHONE: 01629680825
+             * CODE NUMBER: 5a4741aa518eb724cc596ea1
+             * TICKET TYPE: VIP             
+             */
+
+            let informations = order.informations.fullName,
+                phoneNumber = order.informations.phoneNumber,
+                ticketType = null;
+
+            if (!informations || !phoneNumber) {
+                workflow.emit('error-handler', 'Informations of User is missing');
+                return
+            }
+
+            //mark check-in in ticket to TRUE
+            //find ticket
+            if (!order.tickets || order.tickets === 0) {
+                workflow.emit('error-handler', 'Tickets are missing');
+                return
+            }
+            
+            //find index ticket
+            let index = lodash.findIndex(order.tickets, (ticket) => {
+                if (!ticket.QRCode) {
+                    return false
+                }
+                return ticket.QRCode === qrCode;
+            });
+
+            if (!index || index === -1) {
+                workflow.emit('error-handler', 'Ticket not found');
+                return
+            }
+
+            //find ticket  
+            order.tickets[index].isCheckedIn = true;
+
+            Ticket.findById(idTicket, (err, ticket) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                    return
+                }
+
+                if (!ticket) {
+                    workflow.emit('error-handler', 'Ticket is missing!');
+                    return
+                }
+
+                ticketType = ticket.name;
+            });
+
+            order.save((err) => {
+                if (err) {
+                    workflow.emit('error-handler', err);
+                    return
+                }
+
+                let response = {
+                    'STATUS': 'VALID',
+                    'NAME': fullName,
+                    'PHONE': phoneNumber,
+                    'CODE NUMBER': code[1],
+                    'TICKET TYPE': ticketType
+                }
+
+                workflow.emit('response', response);
+            });
+        });
+    });
+
+    workflow.on('response', (order) => {
+        socket.emit('check-order', [order])
+    });
+
+    workflow.emit('validate-parameters');
+}
+
 var getUser = (idUser, callback) => {
 
     if (!idUser) {
@@ -592,11 +767,14 @@ var getUser = (idUser, callback) => {
     })
 }
 
+
+
 module.exports = {
     beginOrder: beginOrder,
     order: order,
     cancelOrder: cancelOrder,
     getOrderById: getOrderById,
-    getOrdersByToken: getOrdersByToken
+    getOrdersByToken: getOrdersByToken,
+    checkOrder: checkOrder
 }
 
