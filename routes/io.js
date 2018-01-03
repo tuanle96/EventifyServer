@@ -89,11 +89,6 @@ io.of('/').on('connection', (socket) => {
 
     });
 
-    //get orders 
-    socket.on('get-orders', (data) => {
-
-    });
-
     //updateAvatarUser
     socket.on('upload-image-user', (imgData, imgPath, token) => {
         console.log(socket.id + " upload-image-user")

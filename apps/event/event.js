@@ -151,6 +151,9 @@ var newEvent = (io, socket, event, token) => {
                         if (err) {
                             workflow.emit('error-handler', err)
                         } else {
+
+                            if (!user.myEvents || user.myEvents.length === 0) { user.myEvents = []; }
+
                             user.myEvents.push(event._id);
 
                             user.save((err) => {
@@ -164,6 +167,8 @@ var newEvent = (io, socket, event, token) => {
                             });
                         }
                     });
+                } else {
+                    workflow.emit('error-handler', 'User is required');
                 }
             }
         });

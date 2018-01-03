@@ -262,12 +262,11 @@ var order = (io, socket, order, token) => {
                                 workflow.emit('error-handler', err)
                             } else {
                                 if (event) {
-                                    var orders = event.ordered;
-                                    if (!orders || orders.length === 0) {
-                                        orders = [];
+                                    if (!event.ordered || event.ordered.length === 0) {
+                                        event.ordered = [];
                                     }
 
-                                    orders.push(idUser);
+                                    event.ordered.push(idUser);
                                     event.save((err) => {
                                         if (err) {
                                             workflow.emit('error-handler', err);
@@ -473,7 +472,7 @@ var getOrdersByToken = (io, socket, token) => {
                         order.orderBy = user;
                         if (tickets) {
                             lodash.forEach(tickets, (ticket) => {
-                                let qrCode = ticket.QRCode;
+                                let qrCode = ticket.QRCodePath;
                                 let qrCodePath = 'http://' + socket.handshake.headers.host + '/' + qrCode;
                                 ticket.QRCode = qrCodePath
                             });
@@ -652,15 +651,14 @@ var checkOrder = (io, socket, qrCode, token) => {
         }
 
         const idOrder = code[0],
-            idTicket = code[1],
-            index = code[2];
+            idTicket = code[1];
 
         if (!idOrder) {
             workflow.emit('error-handler', 'Order not found');
             return
         }
 
-        if (!idTicket || !index) {
+        if (!idTicket) {
             workflow.emit('error-handler', 'Ticket not found');
             return
         }
@@ -676,19 +674,11 @@ var checkOrder = (io, socket, qrCode, token) => {
                 return
             }
 
-            /**
-             * STATUS: VALID
-             * NAME: LE ANH TUAN
-             * PHONE: 01629680825
-             * CODE NUMBER: 5a4741aa518eb724cc596ea1
-             * TICKET TYPE: VIP             
-             */
-
-            let informations = order.informations.fullName,
+            var fullName = order.informations.fullName,
                 phoneNumber = order.informations.phoneNumber,
                 ticketType = null;
 
-            if (!informations || !phoneNumber) {
+            if (!fullName || !phoneNumber) {
                 workflow.emit('error-handler', 'Informations of User is missing');
                 return
             }
@@ -699,22 +689,17 @@ var checkOrder = (io, socket, qrCode, token) => {
                 workflow.emit('error-handler', 'Tickets are missing');
                 return
             }
-            
+
+            var tickets = order.tickets.map(ticket => ticket.QRCode);
+
             //find index ticket
-            let index = lodash.findIndex(order.tickets, (ticket) => {
-                if (!ticket.QRCode) {
-                    return false
+            for (let index = 0; index < tickets.length; index++) {
+                //console.log(tickets[index].qrCode + " | " + qrCode);
+                if (qrCode == tickets[index]) {
+                    order.tickets[index].isCheckedIn = true;
+                    break
                 }
-                return ticket.QRCode === qrCode;
-            });
-
-            if (!index || index === -1) {
-                workflow.emit('error-handler', 'Ticket not found');
-                return
             }
-
-            //find ticket  
-            order.tickets[index].isCheckedIn = true;
 
             Ticket.findById(idTicket, (err, ticket) => {
                 if (err) {
@@ -728,23 +713,23 @@ var checkOrder = (io, socket, qrCode, token) => {
                 }
 
                 ticketType = ticket.name;
-            });
 
-            order.save((err) => {
-                if (err) {
-                    workflow.emit('error-handler', err);
-                    return
-                }
-
-                let response = {
-                    'STATUS': 'VALID',
-                    'NAME': fullName,
-                    'PHONE': phoneNumber,
-                    'CODE NUMBER': code[1],
-                    'TICKET TYPE': ticketType
-                }
-
-                workflow.emit('response', response);
+                order.save((err) => {
+                    if (err) {
+                        workflow.emit('error-handler', err);
+                        return
+                    }
+    
+                    let response = {
+                        'STATUS': 'VALID',
+                        'NAME': fullName,
+                        'PHONE': phoneNumber,
+                        'CODE_NUMBER': code[1],
+                        'TICKET_TYPE': ticketType
+                    }
+    
+                    workflow.emit('response', response);
+                });
             });
         });
     });
