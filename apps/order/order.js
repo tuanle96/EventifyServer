@@ -12,6 +12,8 @@ var Order = require('../models/index').order;
 var Event = require('../models/index').event;
 
 let TicketRouter = require('../ticket/index').ticket
+let EventRouter = require('../event/index').event
+
 let pathQRCode = 'uploads/Images/Orders/';
 
 var beginOrder = (io, socket, order, token) => {

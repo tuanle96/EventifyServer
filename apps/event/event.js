@@ -3,11 +3,13 @@
 var express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
+
 var Ticket = require('../models/index').ticket;
 var Event = require('../models/index').event;
 var User = require('../models/index').user;
 var Address = require('../models/index').address;
 var Like = require('../models/index').like;
+
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
 var fs = require('fs');
@@ -872,7 +874,14 @@ var getUsersOrdered = (io, socket, idEvent, token) => {
                                 workflow.emit('error-handler', err)
                             } else {
                                 if (user) {
-                                    users.push(User);
+
+                                    let path = user.photoPath
+
+                                    if (path) {
+                                        user.photoPath = 'http://' + socket.handshake.headers.host + '/' + path;
+                                    }
+
+                                    users.push(user);
                                 }
                             }
 
@@ -880,7 +889,7 @@ var getUsersOrdered = (io, socket, idEvent, token) => {
                                 workflow.emit('response', users);
                             }
                         })
-                    })                    
+                    })
                 }
             }
         });
