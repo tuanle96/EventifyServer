@@ -11,8 +11,8 @@ var User = require('../models/index').user;
 var Order = require('../models/index').order;
 var Event = require('../models/index').event;
 
-let TicketRouter = require('../ticket/index').ticket
-let EventRouter = require('../event/index').event
+let TicketRouter = require('../ticket/index').ticket;
+let EventRouter = require('../event/index').event;
 
 let pathQRCode = 'uploads/Images/Orders/';
 
@@ -264,11 +264,11 @@ var order = (io, socket, order, token) => {
                                 workflow.emit('error-handler', err)
                             } else {
                                 if (event) {
-                                    if (!event.ordered || event.ordered.length === 0) {
-                                        event.ordered = [];
+                                    if (!event.orders || event.orders.length === 0) {
+                                        event.orders = [];
                                     }
 
-                                    event.ordered.push(idUser);
+                                    event.orders.push(id);
                                     event.save((err) => {
                                         if (err) {
                                             workflow.emit('error-handler', err);
@@ -606,15 +606,19 @@ var getOrderById = (io, socket, idOrder, token) => {
     workflow.emit('validate-parameters');
 }
 
-var checkOrder = (io, socket, qrCode, token) => {
+var checkOrder = (io, socket, qrCode, idEvent, token) => {
     //5a475be1c1b4b326a6f12d36.5a4741aa518eb724cc596ea1.1
     //from id order can get informations of user, order, ...
     var workflow = new (require('events').EventEmitter)();
 
     workflow.on('validate-parameters', () => {
-
         if (!qrCode) {
             workflow.emit('error-handler', 'QRCode is required!');
+            return
+        }
+
+        if (!idEvent) {
+            workflow.emit('error-handler', 'Event is missing!');
             return
         }
 
@@ -678,7 +682,29 @@ var checkOrder = (io, socket, qrCode, token) => {
 
             var fullName = order.informations.fullName,
                 phoneNumber = order.informations.phoneNumber,
+                idEventOfOrder = order.event,
                 ticketType = null;
+
+            //compare between idEvent of QRCode and idEvent of Order
+            if (!idEventOfOrder) {
+                workflow.emit('error-handler', 'Event was losed!');
+                return
+            }
+
+            if (String(idEventOfOrder) !== idEvent) {
+                let response = {
+                    'STATUS': false,
+                    'NAME': null,
+                    'PHONE': null,
+                    'CODE_NUMBER': null,
+                    'TICKET_TYPE': null
+                }
+
+                workflow.emit('response', response);
+
+                return;
+            }
+
 
             if (!fullName || !phoneNumber) {
                 workflow.emit('error-handler', 'Informations of User is missing');
@@ -696,7 +722,6 @@ var checkOrder = (io, socket, qrCode, token) => {
 
             //find index ticket
             for (let index = 0; index < tickets.length; index++) {
-                //console.log(tickets[index].qrCode + " | " + qrCode);
                 if (qrCode == tickets[index]) {
                     order.tickets[index].isCheckedIn = true;
                     break
@@ -721,15 +746,15 @@ var checkOrder = (io, socket, qrCode, token) => {
                         workflow.emit('error-handler', err);
                         return
                     }
-    
+
                     let response = {
-                        'STATUS': 'VALID',
+                        'STATUS': true,
                         'NAME': fullName,
                         'PHONE': phoneNumber,
                         'CODE_NUMBER': code[1],
                         'TICKET_TYPE': ticketType
                     }
-    
+
                     workflow.emit('response', response);
                 });
             });
@@ -737,7 +762,8 @@ var checkOrder = (io, socket, qrCode, token) => {
     });
 
     workflow.on('response', (order) => {
-        socket.emit('check-order', [order])
+        socket.emit('check-order', [order]);
+        EventRouter.getOrdersByEvent(io, socket, idEvent, token);
     });
 
     workflow.emit('validate-parameters');
@@ -753,7 +779,6 @@ var getUser = (idUser, callback) => {
         return callback(err, user);
     })
 }
-
 
 
 module.exports = {

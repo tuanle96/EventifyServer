@@ -35,7 +35,7 @@ module.exports = mongoose.model('Event', new Schema({
         quantitiesSold: Number,
         quantitiesRemaining: Number
     }],
-    ordered: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    orders: [{ type: Schema.Types.ObjectId, ref: "Order" }],
     timeStart: Number,
     timeEnd: Number
 }));

@@ -8,9 +8,11 @@ module.exports = mongoose.model('Order', new Schema({
     event: { type: Schema.Types.ObjectId, ref: 'Event' },
     tickets: [{
         _id: { type: Schema.Types.ObjectId, ref: 'Ticket' },
+        informations: { type: Schema.Types.ObjectId, ref: 'Ticket' },
         QRCode: String,
         QRCodePath: String,
-        isCheckedIn: { type: Schema.Types.Boolean }
+        isCheckedIn: { type: Schema.Types.Boolean },
+        timeCheckIn: Number,
     }],
     informations: {
         fullName: String,

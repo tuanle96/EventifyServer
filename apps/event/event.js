@@ -9,6 +9,7 @@ var Event = require('../models/index').event;
 var User = require('../models/index').user;
 var Address = require('../models/index').address;
 var Like = require('../models/index').like;
+var Order = require('../models/index').order;
 
 var jwt = require('jsonwebtoken');
 const key = require('../config/index').key;
@@ -820,8 +821,7 @@ var getLikedEvents = (io, socket, token) => {
 
     workflow.emit('validate-parameters');
 }
-
-var getUsersOrdered = (io, socket, idEvent, token) => {
+var getOrdersByEvent = (io, socket, idEvent, token) => {
     var workflow = new (require('events').EventEmitter)();
 
     workflow.on('validate-parameters', () => {
@@ -845,58 +845,114 @@ var getUsersOrdered = (io, socket, idEvent, token) => {
                 if (!decoded.id) {
                     workflow.emit('error-handler', 'Id of User is required!');
                 } else {
-                    workflow.emit('get-users-ordered');
+                    workflow.emit('get-orders-by-event');
                 }
             }
         });
     });
 
     workflow.on('error-handler', (err) => {
-        socket.emit('get-users-ordered', [{ 'error': err }]);
+        socket.emit('get-orders-by-event', [{ 'error': err }]);
     });
 
-    workflow.on('get-users-ordered', () => {
+    workflow.on('get-orders-by-event', () => {
         Event.findById(idEvent, (err, event) => {
             if (err) {
                 workflow.emit('error-handler', err);
             } else {
-                var usersOrdered = event.ordered;
-                var users = [];
+                var orders = event.orders;
+                var ordersToResponse = [];
+                var check = 0;
+                lodash.forEach(orders, (order) => {
+                    Order.findById(order, (err, order) => {
+                        if (err) {
+                            workflow.emit('error-handler', err);
+                            return
+                        }
 
-                if (!usersOrdered || usersOrdered.length === 0) {
-                    workflow.emit('response', [{}])
-                } else {
-                    var check = 0;
-                    lodash.forEach(usersOrdered, (idUser) => {
-                        User.findById(idUser, (err, user) => {
-                            check++;
-                            if (err) {
-                                workflow.emit('error-handler', err)
-                            } else {
-                                if (user) {
+                        if (!order) {
+                            workflow.emit('error-handler', 'Order not found');
+                            return
+                        }
 
-                                    let path = user.photoPath
+                        let tickets = order.tickets;
 
-                                    if (path) {
-                                        user.photoPath = 'http://' + socket.handshake.headers.host + '/' + path;
+                        if (!tickets || tickets.length === 0) {
+                            workflow.emit('error-handler', 'Tickets not found');
+                            return
+                        }
+
+                        var ticketsToResponse = [];
+                        var checkTicket = 0;
+
+                        //find tickets
+                        lodash.forEach(tickets, (element) => {
+                            let id = element._id;
+                            Ticket.findById(id, (err, ticket) => {
+
+                                checkTicket++;
+
+                                if (err) {
+                                    workflow.emit('error-handler', err);
+                                    return
+                                }
+
+                                if (!ticket) {
+                                    workflow.emit('error-handler', 'Ticket was missed');
+                                    return
+                                }
+
+                                element.informations = ticket;
+                                ticketsToResponse.push(element);
+
+                                if (checkTicket === tickets.length) {
+                                    //replace new tickets
+                                    order.tickets = ticketsToResponse;
+
+                                    //Continue to find user who ordered
+                                    let idUser = order.orderBy;
+                                    if (!idUser) {
+                                        workflow.emit('error-handler', 'User not found!');
+                                        return
                                     }
 
-                                    users.push(user);
-                                }
-                            }
+                                    User.findById(idUser, (err, user) => {
+                                        check++;
 
-                            if (check === usersOrdered.length) {
-                                workflow.emit('response', users);
-                            }
-                        })
-                    })
-                }
+                                        if (err) {
+                                            workflow.emit('error-handler', err);
+                                            return
+                                        }
+
+                                        if (!user) {
+                                            workflow.emit('error-handler', 'User not found');
+                                            return
+                                        }
+
+                                        let path = user.photoPath;
+                                        if (path) {
+                                            user.photoPath = 'http://' + socket.handshake.headers.host + '/' + path;
+                                        }
+
+                                        order.orderBy = user
+
+                                        ordersToResponse.push(order);
+
+                                        if (check === orders.length) {
+                                            workflow.emit('response', ordersToResponse);
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                    });
+                });
             }
         });
     });
 
-    workflow.on('response', (users) => {
-        socket.emit('get-users-ordered', users)
+    workflow.on('response', (orders) => {
+        socket.emit('get-orders-by-event', orders)
     });
 
     workflow.emit('validate-parameters');
@@ -1108,6 +1164,6 @@ module.exports = {
     like: like,
     unlike: unlike,
     getLikedEvents: getLikedEvents,
-    getUsersOrdered: getUsersOrdered
+    getOrdersByEvent: getOrdersByEvent
 }
 

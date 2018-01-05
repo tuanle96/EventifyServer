@@ -150,9 +150,9 @@ io.of('/').on('connection', (socket) => {
         Event.getEvent(io, socket, idEvent, token)
     });
 
-    socket.on('get-users-ordered', (idEvent, token) => {
-        console.log(socket.id + " get-users-ordered")
-        Event.getUsersOrdered(io, socket, idEvent, token);
+    socket.on('get-orders-by-event', (idEvent, token) => {
+        console.log(socket.id + " get-orders-by-event")
+        Event.getOrdersByEvent(io, socket, idEvent, token);
     });
 
     socket.on('new-event', (event, token) => {
@@ -246,9 +246,9 @@ io.of('/').on('connection', (socket) => {
     });
 
     
-    socket.on('check-order', (qrCode, token) => {
+    socket.on('check-order', (qrCode, idEvent, token) => {
         console.log(socket.id + " check-order");
-        Order.checkOrder(io, socket, qrCode, token);
+        Order.checkOrder(io, socket, qrCode, idEvent, token);
     });
 
     /**
