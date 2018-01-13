@@ -3,11 +3,6 @@ var mongoose = require('../config/index').db;
 var Address = require('./index').address
 var Schema = mongoose.Schema;
 
-let userRef = {
-    type: Schema.Types.ObjectId,
-    ref: "User"
-}
-
 module.exports = mongoose.model('Event', new Schema({
     name: String,
     address: {
@@ -21,7 +16,10 @@ module.exports = mongoose.model('Event', new Schema({
     photoCoverPath: String,
     descriptions: String,
     types: [{ _id: String, name: String }],
-    createdBy: userRef,
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User"
+    },
     tickets: [{
         _id: { type: Schema.Types.ObjectId, ref: "Ticket" },
         name: String,

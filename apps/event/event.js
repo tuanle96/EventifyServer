@@ -791,7 +791,7 @@ var getLikedEvents = (io, socket, token) => {
 
     workflow.on('get-liked-events', (idUser) => {
         User.findById(idUser, 'liked', (err, user) => {
-            let likes = user.liked;
+            let likes = user.liked; 
             if (!likes || likes.length === 0) {
                 workflow.emit('response', [{}]);
                 return

@@ -11,7 +11,7 @@ module.exports = mongoose.model('User', new Schema({
     fullName: String,
     phoneNumber: String,
     photoPath: String,
-    liked: [{ type: Schema.Types.ObjectId, ref: 'Like' }],
+    liked: [{ type: Schema.Types.ObjectId, ref: 'Event' }],
     orders: [{ type: Schema.Types.ObjectId, ref: 'Order' }],
     myEvents: [{ type: Schema.Types.ObjectId, ref: 'Event' }],
     tickets: [{

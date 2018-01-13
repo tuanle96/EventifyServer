@@ -607,9 +607,8 @@ var getOrderById = (io, socket, idOrder, token) => {
 }
 
 var checkOrder = (io, socket, qrCode, idEvent, token) => {
-    //5a475be1c1b4b326a6f12d36.5a4741aa518eb724cc596ea1.1
-    //from id order can get informations of user, order, ...
     var workflow = new (require('events').EventEmitter)();
+    var idUser = null;
 
     workflow.on('validate-parameters', () => {
         if (!qrCode) {
@@ -637,6 +636,7 @@ var checkOrder = (io, socket, qrCode, idEvent, token) => {
                 if (!decoded.id) {
                     workflow.emit('error-handler', 'Id user not found')
                 } else {
+                    idUser = decoded.id;
                     workflow.emit('check-order');
                 }
             }
@@ -691,24 +691,24 @@ var checkOrder = (io, socket, qrCode, idEvent, token) => {
                 return
             }
 
+            if (!fullName || !phoneNumber) {
+                workflow.emit('error-handler', 'Informations of User is missing');
+                return
+            }
+
             if (String(idEventOfOrder) !== idEvent) {
                 let response = {
                     'STATUS': false,
-                    'NAME': null,
-                    'PHONE': null,
-                    'CODE_NUMBER': null,
-                    'TICKET_TYPE': null
+                    'NAME': fullName,
+                    'PHONE': phoneNumber,
+                    'CODE_NUMBER': code[1],
+                    'TICKET_TYPE': null,
+                    'ID_USER': idUser
                 }
 
                 workflow.emit('response', response);
 
                 return;
-            }
-
-
-            if (!fullName || !phoneNumber) {
-                workflow.emit('error-handler', 'Informations of User is missing');
-                return
             }
 
             //mark check-in in ticket to TRUE
@@ -752,7 +752,8 @@ var checkOrder = (io, socket, qrCode, idEvent, token) => {
                         'NAME': fullName,
                         'PHONE': phoneNumber,
                         'CODE_NUMBER': code[1],
-                        'TICKET_TYPE': ticketType
+                        'TICKET_TYPE': ticketType,
+                        'ID_USER': idUser
                     }
 
                     workflow.emit('response', response);
@@ -761,9 +762,12 @@ var checkOrder = (io, socket, qrCode, idEvent, token) => {
         });
     });
 
-    workflow.on('response', (order) => {
-        socket.emit('check-order', [order]);
+    workflow.on('response', (response) => {
+        socket.emit('check-order', [response]);
         EventRouter.getOrdersByEvent(io, socket, idEvent, token);
+
+        //alert to user that check-in successfully        
+        io.emit('alert-to-verify-ticket', [response]);
     });
 
     workflow.emit('validate-parameters');
